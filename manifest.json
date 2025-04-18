@@ -1,7 +1,7 @@
 {
     "name": "Subtitle Translator",
     "short_name": "Sub Trans",
-    "description": "Translate SRT subtitle files using Google Gemini API directly in your browser.",
+    "description": "Translate pdf subtitle files using Google Gemini API directly in your browser.",
     "start_url": "./index.html",
     "display": "standalone",
     "background_color": "#f0f2f5",

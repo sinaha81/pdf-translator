@@ -22,14 +22,10 @@
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-    <!-- PDF.js Library (add these two lines) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-q+4liFwdPC/bNdhUpZx6azD6Evo7SvpIe+tG94/Y7vdN1xLdJb77/k1t/h3o2L0a+17n/pQ8y5XGzIlnsC2uPg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js" integrity="sha512-BbrZ76UN4legck7VchNfA45MM9gwG2/2+RldwSFImA7J6UEq6Q5+HsaqL9VIBN6ApXhxt4J/uJ+3FzSltX2HKA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
     <div class="container">
         <!-- Header with controls -->
         <div class="top-bar">
-             <h1 id="page-title">PDF Translator</h1>
+             <h1 id="page-title">Subtitle Translator</h1>
              <div class="controls">
                  <button id="languageToggle" class="control-btn" aria-label="Toggle language" title="Toggle language (English/Persian)">
                      <i class="fas fa-language"></i>
@@ -44,7 +40,7 @@
         </div>
 
         <p id="upload-instructions" class="instructions">
-            Upload a PDF file or paste text, provide your Gemini API key, and select the target language.
+            Upload an pdf file or paste content, provide your Gemini API key, and select the target language.
         </p>
         <p id="warning-message" class="warning">
            ⚠️ If in Iran, enable "Use Proxy" in Settings for Gemini API access due to sanctions.
@@ -66,19 +62,19 @@
 
             <!-- File Input Area -->
             <div id="file-input" class="form-group input-section">
-                <label id="file-label" class="form-label">Upload PDF File:</label>
+                <label id="file-label" class="form-label">Upload pdf File:</label>
                 <div id="dropzone-upload" class="dropzone">
                     <div class="dz-message">
                         <i class="fas fa-cloud-upload-alt"></i>
-                        <p>Drag & drop PDF file here<br>or click to browse</p>
+                        <p>Drag & drop pdf file here<br>or click to browse</p>
                     </div>
                 </div>
             </div>
 
             <!-- Text Input Area -->
             <div id="text-input" class="form-group input-section" style="display: none;">
-                <label id="text-label" class="form-label" for="srt_text">Paste Text Content:</label>
-                <textarea id="srt_text" name="srt_text" rows="6" placeholder="Paste your text content here..."></textarea>
+                <label id="text-label" class="form-label" for="pdf_text">Paste pdf Content:</label>
+                <textarea id="pdf_text" name="pdf_text" rows="6" placeholder="Paste your pdf content here..."></textarea>
             </div>
 
             <!-- API Key -->
@@ -179,12 +175,12 @@
                     <div class="form-group">
                         <label id="chunk-count-label" class="form-label" for="chunk_count">Number of Chunks:</label>
                         <input type="number" id="chunk_count" name="chunk_count" min="1" max="100" value="20" placeholder="20" required>
-                         <p id="chunk-count-note" class="note">Split text into this many parts (1-100).</p>
+                         <p class="note">Split pdf into this many parts (1-100).</p>
                     </div>
 
                     <div class="form-group">
                          <label id="translation-prompt-label" class="form-label" for="translation_prompt">System Prompt / Instructions:</label>
-                         <textarea id="translation_prompt" name="translation_prompt" rows="5">Translate the following text into the target language. Respond ONLY with the translated text.</textarea>
+                         <textarea id="translation_prompt" name="translation_prompt" rows="5">Translate the following subtitle text into the target language. Maintain the original meaning, natural conversational tone, and appropriate length for subtitles. Respond ONLY with the translated text lines, separated by `---`.</textarea>
                          <p class="note">Instructions for the AI model.</p>
                     </div>
                 </div>
@@ -219,8 +215,15 @@
 
     </div> <!-- End .container -->
 
+    <footer class="footer">
+        <p>ساخته شده با ❤️ توسط <a href="https://x.com/yebekhe" target="_blank" rel="noopener noreferrer">yebekhe</a></p>
+        <!-- English version (will be swapped by JS) -->
+        <p style="display: none;">Created with ❤️ by <a href="https://x.com/yebekhe" target="_blank" rel="noopener noreferrer">yebekhe</a></p>
+    </footer>
+
     <!-- Dropzone JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.js" integrity="sha512-U2WE1ktpMTuRBPoCFDzomoIorbOyUv0sP8B+INA3EzNAhehbzED1rOJg6bCqPf/Tuposxb5ja/MAUnC8THSbLQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <!-- Dropzone JS -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.js" integrity="sha512-U2WE1ktpMTuRBPoCFDzomoIorbOyUv0sP8B+INA3EzNAhehbzED1rOJg6bCqPf/Tuposxb5ja/MAUnC8THSbLQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <!-- Link to your custom JavaScript -->
     <script src="assets/script.js"></script>
     <!-- Service Worker Registration -->

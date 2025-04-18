@@ -27,7 +27,7 @@ const languageToggle = document.getElementById('languageToggle');
 const clearMemoryButton = document.getElementById('clear-memory-button');
 const translateForm = document.getElementById('translate-form');
 const dropzoneElement = document.getElementById("dropzone-upload");
-const srtTextInput = document.getElementById('srt_text');
+const pdfTextInput = document.getElementById('pdf_text');
 const apiKeyInput = document.getElementById('api_key');
 const rememberMeCheckbox = document.getElementById('remember_me');
 const useProxyCheckbox = document.getElementById('useProxyCheckbox');
@@ -73,41 +73,6 @@ const quotaDelayLabel = document.getElementById('quota-delay-label');
 const chunkCountLabel = document.getElementById('chunk-count-label');
 const translationPromptLabel = document.getElementById('translation-prompt-label');
 
-// PDF.js Worker setup - REMOVED FROM HERE
-// pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-// Function to extract text from PDF file
-async function extractPdfText(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            try {
-                const typedArray = new Uint8Array(event.target.result);
-                const loadingTask = pdfjsLib.getDocument({ data: typedArray });
-                const pdf = await loadingTask.promise;
-                console.log('PDF loaded');
-
-                let fullText = '';
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
-                    const pageText = textContent.items.map(item => item.str).join(' '); // Join items with space
-                    fullText += pageText + '\n\n'; // Add double newline between pages
-                }
-                console.log(`Extracted text length: ${fullText.length}`);
-                resolve(fullText.trim());
-            } catch (error) {
-                console.error('Error reading PDF:', error);
-                reject('Error reading PDF file. Ensure it is a valid, text-based PDF.');
-            }
-        };
-        reader.onerror = (error) => {
-            console.error('File Reader Error:', error);
-            reject('Error reading the uploaded file.');
-        };
-        reader.readAsArrayBuffer(file);
-    });
-}
 
 // --- Dropzone Configuration ---
 Dropzone.autoDiscover = false;
@@ -116,13 +81,13 @@ if (dropzoneElement) {
         const myDropzone = new Dropzone(dropzoneElement, {
             url: "#", // Dummy URL
             autoProcessQueue: false,
-            acceptedFiles: ".pdf", // Changed to PDF
+            acceptedFiles: ".pdf",
             maxFiles: 1,
             addRemoveLinks: true,
             dictDefaultMessage: dropzoneElement.querySelector('.dz-message') ? dropzoneElement.querySelector('.dz-message').innerHTML : "<p>Drop files here or click to upload.</p>",
             dictRemoveFile: "Remove",
             dictMaxFilesExceeded: "You can only upload one file.",
-            dictInvalidFileType: "You can only upload .pdf files.", // Changed to PDF
+            dictInvalidFileType: "You can only upload .pdf files.",
             init: function() {
                 this.on("addedfile", function(file) {
                     if (this.files.length > 1) {
@@ -142,7 +107,7 @@ if (dropzoneElement) {
                     if (typeof errorMsg === 'string') {
                         if (errorMsg.includes("You can only upload")) userMessage = errorMsg;
                         else if (errorMsg.includes("File is too big")) userMessage = "File is too large.";
-                        else userMessage = "Invalid file. Please ensure it's a valid .pdf file."; // Changed to PDF
+                        else userMessage = "Invalid file. Please ensure it's a valid .pdf file.";
                     }
                     showError(userMessage);
                     if (file.previewElement) {
@@ -185,22 +150,22 @@ function updateTheme(setLight) { // Parameter indicates the desired state
 
 // --- Language Management ---
 function updateLanguage(lang) {
-    const isRTL = lang === 'Persian';
-    htmlElement.classList.toggle('rtl-text', isRTL);
+    const ipdfL = lang === 'Persian';
+    htmlElement.classList.toggle('rtl-text', ipdfL);
 
     // Footer Elements
     const footerPersian = document.querySelector('.footer p:first-child');
     const footerEnglish = document.querySelector('.footer p:nth-child(2)');
 
     try {
-        if (isRTL) {
+        if (ipdfL) {
             htmlElement.lang = 'fa';
             // Show Persian footer, hide English
             if (footerPersian) footerPersian.style.display = 'block';
             if (footerEnglish) footerEnglish.style.display = 'none';
 
-            if (pageTitle) pageTitle.textContent = 'مترجم PDF'; // Changed
-            if (uploadInstructions) uploadInstructions.textContent = 'فایل PDF را بارگذاری یا متن را الصاق کنید، کلید API Gemini و زبان مقصد را ارائه دهید.'; // Changed
+            if (pageTitle) pageTitle.textContent = 'مترجم زیرنویس';
+            if (uploadInstructions) uploadInstructions.textContent = 'فایل pdf را بارگذاری یا الصاق کنید، کلید API Gemini و زبان مقصد را ارائه دهید.';
             if (warningMessage) warningMessage.textContent = '⚠️ اگر در ایران هستید، برای دسترسی به API Gemini به دلیل تحریم، «استفاده از پروکسی» را در تنظیمات پیشرفته فعال کنید.';
             const advancedWarning = document.querySelector('.advanced-warning-message'); // Target advanced warning specifically
             if (advancedWarning) advancedWarning.textContent = '⚠️ تنظیم این پارامترها می‌تواند بر عملکرد، هزینه و کیفیت ترجمه تأثیر بگذارد. با احتیاط عمل کنید.';
@@ -209,8 +174,8 @@ function updateLanguage(lang) {
             if (fileRadioLabel) fileRadioLabel.lastChild.textContent = ' بارگذاری فایل';
             const textRadioLabel = document.querySelector('label.radio-label:has(input[value="text"])');
             if (textRadioLabel) textRadioLabel.lastChild.textContent = ' الصاق متن';
-            if (fileLabel) fileLabel.textContent = 'بارگذاری فایل PDF:'; // Changed
-            if (textLabel) textLabel.textContent = 'الصاق محتوای متن:'; // Changed
+            if (fileLabel) fileLabel.textContent = 'بارگذاری فایل pdf:';
+            if (textLabel) textLabel.textContent = 'الصاق محتوای pdf:';
             if (apiKeyLabel) apiKeyLabel.textContent = 'کلید API Gemini:';
             if (apiKeyInput) apiKeyInput.placeholder = 'کلید API خود را وارد کنید';
             if (rememberMeLabel) rememberMeLabel.textContent = 'ذخیره کلید API';
@@ -233,7 +198,7 @@ function updateLanguage(lang) {
             if(quotaDelayNote) quotaDelayNote.textContent = 'تأخیر پس از رسیدن به محدودیت (خطای 429).';
             if (chunkCountLabel) chunkCountLabel.textContent = 'تعداد بخش‌ها:';
             const chunkCountNote = chunkCountLabel?.closest('.form-group')?.querySelector('.note');
-            if(chunkCountNote) chunkCountNote.textContent = 'تقسیم متن به این تعداد بخش (1-100).'; // Changed
+            if(chunkCountNote) chunkCountNote.textContent = 'تقسیم pdf به این تعداد بخش (1-100).';
             const tempLabel = document.getElementById('temperature-label'); if (tempLabel) tempLabel.textContent = 'دما:';
             const tempNote = tempLabel?.closest('.form-group')?.querySelector('.note'); if(tempNote) tempNote.textContent = 'کنترل تصادفی بودن (0.0-2.0). مقادیر بالاتر = خلاقیت/تصادفی بیشتر.';
             const topPLabel = document.getElementById('top-p-label'); if (topPLabel) topPLabel.textContent = 'Top-P:';
@@ -258,8 +223,8 @@ function updateLanguage(lang) {
             if (footerPersian) footerPersian.style.display = 'none';
             if (footerEnglish) footerEnglish.style.display = 'block';
 
-            if (pageTitle) pageTitle.textContent = 'PDF Translator'; // Changed
-            if (uploadInstructions) uploadInstructions.textContent = 'Upload a PDF file or paste text, provide your Gemini API key, and select the target language.'; // Changed
+            if (pageTitle) pageTitle.textContent = 'Subtitle Translator';
+            if (uploadInstructions) uploadInstructions.textContent = 'Upload an pdf file or paste content, provide your Gemini API key, and select the target language.';
             if (warningMessage) warningMessage.textContent = '⚠️ If in Iran, enable "Use Proxy" in Settings for Gemini API access due to sanctions.';
              const advancedWarning = document.querySelector('.advanced-warning-message');
             if (advancedWarning) advancedWarning.textContent = '⚠️ Adjusting these settings can affect performance, cost, and translation quality. Proceed with caution.';
@@ -268,8 +233,8 @@ function updateLanguage(lang) {
             if (fileRadioLabel) fileRadioLabel.lastChild.textContent = ' Upload File';
             const textRadioLabel = document.querySelector('label.radio-label:has(input[value="text"])');
             if (textRadioLabel) textRadioLabel.lastChild.textContent = ' Paste Text';
-            if (fileLabel) fileLabel.textContent = 'Upload PDF File:'; // Changed
-            if (textLabel) textLabel.textContent = 'Paste Text Content:'; // Changed
+            if (fileLabel) fileLabel.textContent = 'Upload pdf File:';
+            if (textLabel) textLabel.textContent = 'Paste pdf Content:';
             if (apiKeyLabel) apiKeyLabel.textContent = 'Gemini API Key:';
             if (apiKeyInput) apiKeyInput.placeholder = 'Enter your Gemini API key';
             if (rememberMeLabel) rememberMeLabel.textContent = 'Remember API key';
@@ -292,7 +257,7 @@ function updateLanguage(lang) {
             if(quotaDelayNote) quotaDelayNote.textContent = 'Delay after hitting a rate limit (429 error).';
             if (chunkCountLabel) chunkCountLabel.textContent = 'Number of Chunks:';
             const chunkCountNote = chunkCountLabel?.closest('.form-group')?.querySelector('.note');
-            if(chunkCountNote) chunkCountNote.textContent = 'Split text into this many parts (1-100).'; // Changed
+            if(chunkCountNote) chunkCountNote.textContent = 'Split pdf into this many parts (1-100).';
              const tempLabel = document.getElementById('temperature-label'); if (tempLabel) tempLabel.textContent = 'Temperature:';
              const tempNote = tempLabel?.closest('.form-group')?.querySelector('.note'); if(tempNote) tempNote.textContent = 'Controls randomness (0.0-2.0). Higher values = more creative/random.';
              const topPLabel = document.getElementById('top-p-label'); if (topPLabel) topPLabel.textContent = 'Top-P:';
@@ -323,7 +288,7 @@ function updateLanguage(lang) {
 
 // --- NEW Helper Function ---
 function updateProgressTextsForLanguage(lang) {
-    const isRTL = lang === 'Persian';
+    const ipdfL = lang === 'Persian';
     const progressTextElem = document.getElementById('progress-text');
     const chunkStatusElem = document.getElementById('chunk-status');
     const timeEstimateElem = document.getElementById('time-estimate');
@@ -332,13 +297,13 @@ function updateProgressTextsForLanguage(lang) {
     // This assumes the numeric part (e.g., percentage, chunk numbers) is already correct
     if (progressTextElem) {
         const currentPercentage = progressTextElem.textContent.match(/\d+/)?.[0] || 0; // Extract number
-        progressTextElem.textContent = isRTL ? `${currentPercentage}% تکمیل شده` : `${currentPercentage}% Complete`;
+        progressTextElem.textContent = ipdfL ? `${currentPercentage}% تکمیل شده` : `${currentPercentage}% Complete`;
     }
     if (chunkStatusElem) {
         const match = chunkStatusElem.textContent.match(/(\d+)\/(\d+)/);
         const currentChunk = match?.[1] || 0;
         const totalChunks = match?.[2] || 0;
-        chunkStatusElem.textContent = isRTL ? `پردازش بخش: ${currentChunk}/${totalChunks}` : `Processing chunk: ${currentChunk}/${totalChunks}`;
+        chunkStatusElem.textContent = ipdfL ? `پردازش بخش: ${currentChunk}/${totalChunks}` : `Processing chunk: ${currentChunk}/${totalChunks}`;
     }
     // Time estimate text is already handled within updateProgress based on language
 }
@@ -434,22 +399,22 @@ function updateProgress(chunkIndex, totalChunks, startTime) { // Pass startTime 
     }
 
    const lang = localStorage.getItem('language') || 'English';
-   const isRTL = lang === 'Persian';
+   const ipdfL = lang === 'Persian';
 
    const currentDisplayChunk = chunkIndex + 1; // User-facing index (1-based)
    const progressPercentage = totalChunks > 0 ? Math.round((currentDisplayChunk / totalChunks) * 100) : 0;
 
    progressBar.style.width = `${progressPercentage}%`;
    // Update text based on percentage and language
-   progressText.textContent = isRTL ? `${progressPercentage}% تکمیل شده` : `${progressPercentage}% Complete`;
+   progressText.textContent = ipdfL ? `${progressPercentage}% تکمیل شده` : `${progressPercentage}% Complete`;
 
    // Update chunk status number part
-   chunkStatusSpan.textContent = isRTL ? `پردازش بخش: ${currentDisplayChunk}/${totalChunks}` : `Processing chunk: ${currentDisplayChunk}/${totalChunks}`;
+   chunkStatusSpan.textContent = ipdfL ? `پردازش بخش: ${currentDisplayChunk}/${totalChunks}` : `Processing chunk: ${currentDisplayChunk}/${totalChunks}`;
 
    // --- Time Estimation Logic ---
    // Initial calculation state (only on the very first call)
    if (chunkIndex === 0 && startTime && totalChunks > 1) {
-        timeEstimateSpan.textContent = isRTL ? 'زمان تخمینی: در حال محاسبه...' : 'Estimated time: calculating...';
+        timeEstimateSpan.textContent = ipdfL ? 'زمان تخمینی: در حال محاسبه...' : 'Estimated time: calculating...';
         // firstChunkTime will be calculated *after* this first chunk finishes
    }
    // Use calculated firstChunkTime for subsequent chunks
@@ -459,16 +424,16 @@ function updateProgress(chunkIndex, totalChunks, startTime) { // Pass startTime 
            const estimatedRemainingTime = remainingChunks * firstChunkTime; // In seconds
            const minutes = Math.floor(estimatedRemainingTime / 60);
            const seconds = Math.floor(estimatedRemainingTime % 60);
-           timeEstimateSpan.textContent = isRTL
+           timeEstimateSpan.textContent = ipdfL
                ? `زمان تخمینی: ~${minutes}د ${seconds}ث باقیمانده`
                : `Estimated time: ~${minutes}m ${seconds}s remaining`;
        } else { // Should ideally not happen if logic is correct, but fallback
-            timeEstimateSpan.textContent = isRTL ? 'زمان تخمینی: در حال نهایی‌سازی...' : 'Estimated time: finalizing...';
+            timeEstimateSpan.textContent = ipdfL ? 'زمان تخمینی: در حال نهایی‌سازی...' : 'Estimated time: finalizing...';
        }
    }
    // Handle case with only one chunk or when firstChunkTime isn't ready yet
    else if (totalChunks <= 1 || chunkIndex === 0) {
-        timeEstimateSpan.textContent = isRTL ? 'زمان تخمینی: در حال پردازش...' : 'Estimated time: processing...';
+        timeEstimateSpan.textContent = ipdfL ? 'زمان تخمینی: در حال پردازش...' : 'Estimated time: processing...';
    }
    // --- End Time Estimation Logic ---
 }
@@ -510,57 +475,156 @@ function clearTranslationMemory() {
     }
 }
 
-// --- Text Chunking Utility (Generic) ---
-function splitTextIntoChunks(text, chunkCount) {
-    if (!text || chunkCount <= 0) return [];
-    const textLength = text.length;
-    const chunkSize = Math.ceil(textLength / chunkCount);
+
+// --- pdf Parsing and Handling (Keep robust version) ---
+function parsepdf(pdfContent) {
+    console.log(`Parsing pdf content (length: ${pdfContent.length})`);
+    let normalizedContent = pdfContent.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n');
+    const blocks = normalizedContent.split(/\n\s*\n/);
+    const parsedEntries = [];
+    let entryCount = 0;
+    let skippedBlocks = 0;
+
+    for (const block of blocks) {
+        const trimmedBlock = block.trim();
+        if (!trimmedBlock) continue;
+        const lines = trimmedBlock.split('\n');
+        if (lines.length < 2) {
+            console.warn(`Skipping malformed block (< 2 lines): "${trimmedBlock.substring(0, 50)}..."`);
+            skippedBlocks++; continue;
+        }
+        let idLine = lines[0].trim();
+        let timeLine = lines[1].trim();
+        let text = lines.slice(2).join('\n');
+        const timestampRegex = /^\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{3}$/;
+        let currentIdNum = -1;
+        if (/^\d+$/.test(idLine)) {
+            currentIdNum = parseInt(idLine, 10); entryCount = Math.max(entryCount, currentIdNum);
+        } else {
+            if (timestampRegex.test(idLine)) {
+                 console.warn(`Fixing block with timestamp on first line: "${idLine.substring(0,20)}..."`);
+                 text = timeLine + (text ? '\n' + text : ''); timeLine = idLine; entryCount++;
+                 idLine = entryCount.toString(); currentIdNum = entryCount;
+            } else {
+                console.warn(`Assigning sequential ID to block with non-numeric ID: "${idLine.substring(0,20)}..."`);
+                entryCount++; idLine = entryCount.toString(); currentIdNum = entryCount;
+            }
+        }
+        if (!timestampRegex.test(timeLine)) {
+             console.warn(`Skipping block ID "${idLine}" due to invalid timestamp: "${timeLine.substring(0,50)}..."`);
+             skippedBlocks++; continue;
+        }
+        timeLine = timeLine.replace(/\./g, ',').replace(/\s*-->\s*/, ' --> ');
+        parsedEntries.push({ id: idLine, timeStamp: timeLine, text: text });
+    }
+    console.log(`Parsed ${parsedEntries.length} entries. Skipped ${skippedBlocks}.`);
+    if (skippedBlocks > 0) showError(`Parsed ${parsedEntries.length} entries, skipped ${skippedBlocks} malformed blocks.`, false);
+    return parsedEntries;
+}
+
+function splitIntoChunks(array, chunkCount) {
+    if (!Array.isArray(array) || array.length === 0) return [];
+    const numChunks = Math.max(1, Math.floor(chunkCount) || 1);
+    const effectiveChunkCount = Math.min(numChunks, array.length);
     const chunks = [];
-    for (let i = 0; i < textLength; i += chunkSize) {
-        chunks.push(text.substring(i, i + chunkSize));
+    const baseChunkSize = Math.floor(array.length / effectiveChunkCount);
+    let remainder = array.length % effectiveChunkCount;
+    let startIndex = 0;
+    console.log(`Splitting ${array.length} entries into ${effectiveChunkCount} chunks.`);
+    for (let i = 0; i < effectiveChunkCount; i++) {
+        const currentChunkSize = baseChunkSize + (remainder > 0 ? 1 : 0);
+        chunks.push(array.slice(startIndex, startIndex + currentChunkSize));
+        startIndex += currentChunkSize;
+        if (remainder > 0) remainder--;
     }
     return chunks;
 }
 
-// --- API Interaction (Simplified for plain text chunks) ---
+function reconstructpdf(entries) {
+    if (!Array.isArray(entries)) return '';
+    const sortedEntries = entries.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+    const pdfString = sortedEntries.map(entry => `${entry.id}\n${entry.timeStamp}\n${entry.text}`).join('\n\n');
+    return pdfString + '\n\n';
+}
+
+
+// --- API Interaction (Corrected Proxy Logic, Gen Params, and Retry Call Safety) ---
 async function translateChunk(
-    chunkText, // Now accepts plain text string
-    apiUrl, baseDelayMs, quotaDelayMs, lang,
+    chunk, apiKey, baseDelayMs, quotaDelayMs, lang,
     chunkIndex, // User-facing index (1-based)
     totalChunksForLog, // Total chunks for logging (can be 0/null during retry)
-    generationConfig, systemInstruction // Pass config and prompt object
+    model, promptTemplate,
+    temperature, topP, topK, maxOutputTokens, stopSequencesStr
 ) {
-    // Input validation
-    if (!chunkText || !chunkText.trim()) {
-        console.warn(`TranslateChunk called with empty chunk text (Index: ${chunkIndex})`);
-        return ''; // Return empty string for empty chunk
+    // Input validation at the start
+    if (!chunk || chunk.length === 0) {
+        console.warn(`TranslateChunk called with empty chunk (Index: ${chunkIndex})`);
+        return []; // Return empty array for empty chunk
     }
-    if (!apiUrl || !lang) {
-        throw new Error(`TranslateChunk called with missing required parameters (apiUrl, lang) for chunk ${chunkIndex}`);
+    if (!apiKey || !model || !lang) {
+        throw new Error(`TranslateChunk called with missing required parameters (apiKey, model, lang) for chunk ${chunkIndex}`);
     }
 
-    // --- Update Progress / Log Start ---
+    // --- Update Progress / Log Start (Conditional on totalChunksForLog) ---
+    // Only update main progress bar if called from initial translation loop
     if (totalChunksForLog && totalChunksForLog > 0) {
+        // Note: updateProgress uses 0-based index internally, but we receive 1-based chunkIndex
          updateProgress(chunkIndex - 1, totalChunksForLog, chunkIndex === 1 ? performance.now() : null);
     }
-    console.log(`Starting Chunk ${chunkIndex}${totalChunksForLog ? `/${totalChunksForLog}` : ''} (Text length: ${chunkText.length})`);
+    console.log(`Starting Chunk ${chunkIndex}${totalChunksForLog ? `/${totalChunksForLog}` : ''} (${chunk.length} entries)`);
     // --- End Progress Update ---
 
-    // Construct the prompt using the system instruction and the chunk text
-    const contents = [];
-    if (systemInstruction && systemInstruction.parts && systemInstruction.parts.length > 0) {
-        contents.push(systemInstruction);
+
+    const sourceTexts = chunk.map(entry => entry.text);
+    const cachedTranslations = sourceTexts.map(text => findInTranslationMemory(text, lang));
+    const textsToTranslateMap = new Map();
+    let cacheHitCount = 0;
+
+    sourceTexts.forEach((text, index) => {
+        if (cachedTranslations[index] === undefined) {
+            if (text?.trim()) { textsToTranslateMap.set(index, text); }
+             else { cachedTranslations[index] = ''; }
+        } else { cacheHitCount++; }
+    });
+
+    if (textsToTranslateMap.size === 0) {
+        console.log(`Chunk ${chunkIndex}: All ${chunk.length} entries cached or empty.`);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        return cachedTranslations;
     }
-    contents.push({ role: "user", parts: [{ text: chunkText }] });
+
+    if (cacheHitCount > 0) console.log(`Chunk ${chunkIndex}: ${cacheHitCount} from memory. Translating ${textsToTranslateMap.size}.`);
+
+    const separator = "\n---\n";
+    const indicesToTranslate = Array.from(textsToTranslateMap.keys());
+    const combinedText = indicesToTranslate.map(index => textsToTranslateMap.get(index)).join(separator);
+    const effectivePrompt = `${promptTemplate}\n\nTranslate the following text into ${lang}. Respond ONLY with the translated text lines, separated by "${separator.trim()}", maintaining the original number of separated lines.\n\nInput Text:\n${combinedText}`;
+
+    const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const useProxy = useProxyCheckbox.checked; // Check current state
+    let targetUrl;
+
+    const generationConfig = { temperature, topP, topK, maxOutputTokens };
+    const stopSequencesArray = stopSequencesStr.split(',').map(s => s.trim()).filter(s => s !== '');
+    if (stopSequencesArray.length > 0) { generationConfig.stopSequences = stopSequencesArray; }
 
     let finalPayload = {
-         contents: contents,
+         contents: [{ parts: [{ text: effectivePrompt }] }],
          safetySettings: [
              { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
              { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
          ],
          generationConfig: generationConfig
      };
+
+    if (useProxy) {
+        targetUrl = proxyUrl;
+        finalPayload.endpoint = directUrl;
+        console.log(`Chunk ${chunkIndex}: Using Proxy (${targetUrl}). Sending endpoint in payload.`);
+    } else {
+        targetUrl = directUrl;
+        console.log(`Chunk ${chunkIndex}: Using Direct URL (${targetUrl}).`);
+    }
 
     const headers = { 'Content-Type': 'application/json' };
     const fetchOptions = { method: 'POST', headers: headers, body: JSON.stringify(finalPayload) };
@@ -576,7 +640,7 @@ async function translateChunk(
                  await new Promise(resolve => setTimeout(resolve, retryDelay));
             }
 
-            const response = await fetch(apiUrl, fetchOptions);
+            const response = await fetch(targetUrl, fetchOptions);
 
             if (!response.ok) {
                 let errorBodyText = ''; try { errorBodyText = await response.text(); } catch (e) {}
@@ -606,32 +670,46 @@ async function translateChunk(
 
             if (finishReason === "MAX_TOKENS") {
                 console.warn(`Chunk ${chunkIndex}: Finished due to MAX_TOKENS limit. Output might be truncated.`);
+                // Show non-blocking warning to user *only* if called from main loop
                 if (totalChunksForLog && totalChunksForLog > 0) {
-                     showError(`Warning: Chunk ${chunkIndex} output may be truncated due to token limit (${generationConfig.maxOutputTokens}).`, false);
+                     showError(`Warning: Chunk ${chunkIndex} output may be truncated due to token limit (${maxOutputTokens}).`, false);
                 }
             }
 
             if (responseText === undefined || responseText === null) {
                  console.error(`Invalid API response structure (Chunk ${chunkIndex}): Finish Reason: ${finishReason}`, JSON.stringify(data).substring(0, 300));
                  if (finishReason && finishReason !== "STOP" && finishReason !== "MAX_TOKENS") {
-                     // If safety blocked, try to get the category
-                     const blockedReason = data?.promptFeedback?.blockReason;
-                     const safetyRatings = data?.candidates?.[0]?.safetyRatings;
-                     let safetyMessage = '';
-                     if (blockedReason) safetyMessage = ` Blocked Reason: ${blockedReason}.`;
-                     if (safetyRatings) safetyMessage += ` Ratings: ${JSON.stringify(safetyRatings)}`;
-                      throw new Error(`API Error: No text returned. Finish reason: ${finishReason}.${safetyMessage}`);
+                      throw new Error(`API Error: No text returned. Finish reason: ${finishReason}.`);
                  }
-                 // Allow empty response if finish reason is STOP or MAX_TOKENS
-                 console.warn(`Chunk ${chunkIndex}: Received empty response text but finish reason was ${finishReason}. Returning empty string.`);
-                 return ''; // Return empty string for valid empty responses
+                 if (combinedText.trim() !== "") {
+                      throw new Error('Invalid API response: No text found, but input was not empty.');
+                 }
+                 // Allow empty response if input was empty/whitespace
             }
 
-            const translatedText = (responseText || "").trim(); // Return the translated text directly
+            const rawTranslatedText = (responseText || "").trim();
+            const translatedLines = rawTranslatedText.split(separator.trim()).map(line => line.trim());
+
+            if (rawTranslatedText !== "" && translatedLines.length !== textsToTranslateMap.size) {
+                 console.error(`Chunk ${chunkIndex}: Mismatch! Expected ${textsToTranslateMap.size} lines, Got ${translatedLines.length}.`);
+                 console.error("Received response sample:", rawTranslatedText.substring(0, 200) + "...");
+                 if (attempts < maxAttempts -1) {
+                     attempts++; console.warn(`Retrying chunk ${chunkIndex} due to line mismatch...`);
+                     await new Promise(resolve => setTimeout(resolve, baseDelayMs * 1.5)); continue;
+                 } else { throw new Error(`Response lines (${translatedLines.length}) != input lines (${textsToTranslateMap.size}) after retries.`); }
+             }
+
+            const finalChunkTranslations = [...cachedTranslations];
+             translatedLines.forEach((translatedText, i) => {
+                 const originalIndex = indicesToTranslate[i];
+                 const sourceText = sourceTexts[originalIndex];
+                 finalChunkTranslations[originalIndex] = translatedText;
+                 updateTranslationMemory(sourceText, translatedText, lang);
+             });
 
             console.log(`Chunk ${chunkIndex} translated successfully.`);
             await new Promise(resolve => setTimeout(resolve, baseDelayMs)); // Base delay after success
-            return translatedText;
+            return finalChunkTranslations;
 
         } catch (error) {
             console.error(`Error in translateChunk ${chunkIndex} (Attempt ${attempts + 1}):`, error);
@@ -644,245 +722,220 @@ async function translateChunk(
      throw new Error(`Failed chunk ${chunkIndex} unexpectedly.`);
 }
 
+
 // --- Main Translation Orchestration ---
-async function handleFormSubmit(event) {
+async function handleTranslate(event) {
     event.preventDefault();
-    resetUI();
-    console.log('Translation process started.');
+    resetUI(); // Clear previous results/errors first
 
-    // --- Get Settings ---
-    currentApiKey = apiKeyInput.value.trim();
-    const useProxy = useProxyCheckbox.checked;
-    currentLang = langInput.value.trim();
-    const inputMethod = document.querySelector('input[name="input_method"]:checked').value;
-    currentBaseDelay = parseInt(baseDelayInput.value, 10) || 1000;
-    currentQuotaDelay = parseInt(quotaDelayInput.value, 10) || 60000;
-    const chunkCount = parseInt(chunkCountInput.value, 10) || 20;
-    currentModel = modelSelect.value;
-    currentPromptTemplate = translationPromptTextarea.value.trim();
-    currentTemperature = parseFloat(temperatureInput.value) || 0.7;
-    currentTopP = parseFloat(topPInput.value) || 0.95;
-    currentTopK = parseInt(topKInput.value, 10) || 40;
-    currentMaxOutputTokens = parseInt(maxOutputTokensInput.value, 10) || 8192;
-    currentStopSequencesStr = stopSequencesInput.value.trim();
+    // --- Input Validation --- (Keep existing validation from previous step)
+    const apiKey = apiKeyInput?.value.trim();
+    const lang = langInput?.value.trim();
+    const baseDelay = parseInt(baseDelayInput?.value, 10);
+    const quotaDelay = parseInt(quotaDelayInput?.value, 10);
+    let chunkCount = parseInt(chunkCountInput?.value, 10);
+    const model = modelSelect?.value;
+    const promptTemplate = translationPromptTextarea?.value.trim();
+    const inputMethodRadio = document.querySelector('input[name="input_method"]:checked');
+    const inputMethod = inputMethodRadio ? inputMethodRadio.value : 'file';
+    const pdfTextContent = pdfTextInput?.value.trim();
+    const temperature = parseFloat(temperatureInput?.value);
+    const topP = parseFloat(topPInput?.value);
+    const topK = parseInt(topKInput?.value, 10);
+    const maxOutputTokens = parseInt(maxOutputTokensInput?.value, 10);
+    const stopSequencesStr = stopSequencesInput?.value.trim() ?? '';
 
-    if (!currentApiKey) return showError('API Key is required.');
-    if (!currentLang) return showError('Target language is required.');
-    saveApiKey(); // Save if remember me is checked
+    let hasError = false;
+    if (!apiKeyInput || !apiKey) { showError('Gemini API Key is required.'); hasError = true; }
+    if (!langInput || !lang) { showError('Target Language is required.'); hasError = true; }
+    if (!baseDelayInput || isNaN(baseDelay) || baseDelay < 100) { showError('Base Delay must be >= 100ms.'); hasError = true; }
+    if (!quotaDelayInput || isNaN(quotaDelay) || quotaDelay < 1000) { showError('Quota Delay must be >= 1000ms.'); hasError = true; }
+    if (!chunkCountInput || isNaN(chunkCount) || chunkCount < 1 || chunkCount > 100) { showError('Chunks must be between 1 and 100.'); hasError = true; }
+    if (!modelSelect || !model) { showError('Please select a Gemini Model.'); hasError = true; }
+    if (!temperatureInput || isNaN(temperature) || temperature < 0 || temperature > 2) { showError('Temperature must be a number between 0.0 and 2.0.'); hasError = true; }
+    if (!topPInput || isNaN(topP) || topP < 0 || topP > 1) { showError('Top-P must be a number between 0.0 and 1.0.'); hasError = true; }
+    if (!topKInput || isNaN(topK) || topK < 1) { showError('Top-K must be an integer >= 1.'); hasError = true; }
+    if (!maxOutputTokensInput || isNaN(maxOutputTokens) || maxOutputTokens < 1) { showError('Max Output Tokens must be an integer >= 1.'); hasError = true; }
+    if (hasError) return;
 
-    // --- Get Content (PDF or Text) ---
-    let sourceContent = '';
-    currentOriginalFileName = 'translation'; // Reset filename base
+    let pdfContent = '';
+    let originalFileName = 'translation';
+
+    if (inputMethod === 'file') {
+        if (!uploadedFile) return showError('Please select or drop an pdf file.');
+        try {
+            pdfContent = await uploadedFile.text(); originalFileName = uploadedFile.name.replace(/\.pdf$/i, '');
+            console.log(`Reading file: ${uploadedFile.name}`);
+        } catch (readError) { console.error("Error reading file:", readError); return showError('Could not read the selected file.'); }
+    } else {
+        if (!pdfTextInput || !pdfTextContent) return showError('Please paste pdf content.');
+        pdfContent = pdfTextContent; console.log("Using pasted pdf content.");
+    }
+    if (!pdfContent.trim()) return showError('pdf content is empty.');
+
+    // --- Start Processing ---
+    if (submitButton) submitButton.disabled = true;
+    if (submitButtonText) submitButtonText.textContent = 'Translating...'; // Will be updated by language toggle if needed
+    console.log('Starting translation process...');
+    const startTime = performance.now();
+    firstChunkTime = 0; // Reset timer
+    failedChunksData = [];
+    currentAllTranslatedEntries = [];
+
+    // Store current settings needed for potential retries
+    currentOriginalFileName = originalFileName;
+    currentLang = lang; // Store current language being translated TO
+    currentApiKey = apiKey;
+    currentBaseDelay = baseDelay;
+    currentQuotaDelay = quotaDelay;
+    currentModel = model;
+    currentPromptTemplate = promptTemplate;
+    currentTemperature = temperature;
+    currentTopP = topP;
+    currentTopK = topK;
+    currentMaxOutputTokens = maxOutputTokens;
+    currentStopSequencesStr = stopSequencesStr;
 
     try {
-        if (inputMethod === 'file') {
-            if (!uploadedFile) return showError('Please select or drop a PDF file.');
-            showProgress();
-            progressText.textContent = 'Reading PDF file...'; // Update progress text
-            sourceContent = await extractPdfText(uploadedFile);
-            currentOriginalFileName = uploadedFile.name.replace(/\.pdf$/i, ''); // Use PDF filename
-        } else { // inputMethod === 'text'
-            const textContent = srtTextInput?.value.trim(); // Keep using srtTextInput id for now
-            if (!textContent) return showError('Please paste text content.');
-            sourceContent = textContent;
-            console.log("Using pasted text content.");
-            currentOriginalFileName = 'pasted_text';
-        }
+        const parsedEntries = parsepdf(pdfContent);
+        if (parsedEntries.length === 0) throw new Error('No valid pdf entries found. Cannot proceed.');
 
-        if (!sourceContent.trim()) return showError('The content is empty.');
+        chunkCount = Math.min(chunkCount, parsedEntries.length);
+        const chunks = splitIntoChunks(parsedEntries, chunkCount);
+        if (chunks.length === 0) throw new Error('Failed to split pdf into chunks.');
+        const totalChunks = chunks.length;
 
-    } catch (error) {
-        return showError(error.message || 'Failed to read the input content.');
-    }
+        const allTranslatedEntries = [];
+        const failedChunkIndices = [];
 
-    console.log(`Source content length: ${sourceContent.length}`);
+        // Initial progress update before loop starts
+        updateProgress(-1, totalChunks, startTime); // Show 0% and calculate state
 
-    // --- Chunking (Using Generic Text Split) ---
-    const chunks = splitTextIntoChunks(sourceContent, chunkCount);
-    if (chunks.length === 0) return showError('Failed to split the text into chunks.');
-    console.log(`Split into ${chunks.length} chunks.`);
+        for (let i = 0; i < totalChunks; i++) {
+            const currentChunk = chunks[i];
+            if (!currentChunk || currentChunk.length === 0) {
+                console.warn(`Chunk ${i+1} is empty or invalid, skipping.`);
+                continue;
+            }
 
-    // --- Prepare for Translation ---
-    const totalChunks = chunks.length;
-    currentAllTranslatedEntries = new Array(totalChunks).fill(null); // Initialize array with nulls
-    failedChunksData = []; // Reset failed chunks
-    firstChunkTime = 0; // Reset timer
-    const translationStartTime = performance.now(); // Start overall timer
-    showProgress();
-    updateProgress(0, totalChunks, 0); // Initial progress update
-    submitButton.disabled = true;
-    submitButtonText.textContent = 'Translating...';
+            // Update progress for the chunk *about* to be processed
+            // Pass startTime only for the very first chunk (i === 0)
+            updateProgress(i, totalChunks, i === 0 ? startTime : null);
 
-    // --- Start Translation Process ---
-    const translationPromises = chunks.map((chunkData, index) => {
-        return (async () => { // Use async IIFE to handle awaits
-            const userFacingIndex = index + 1;
             try {
-                // Check memory before API call
-                const cachedTranslation = findInTranslationMemory(chunkData, currentLang);
-                if (cachedTranslation !== undefined) { // Check for undefined, allow empty string from cache
-                    console.log(`Chunk ${userFacingIndex}/${totalChunks}: Found in memory.`);
-                     // Calculate progress based on index
-                     const currentProgressTime = (index === 0 && totalChunks > 1) ? translationStartTime : null;
-                     updateProgress(index, totalChunks, currentProgressTime);
-                    return { index, translatedText: cachedTranslation, fromCache: true };
-                }
+                const chunkStartTime = performance.now(); // Timing specific to this chunk call
 
-                // Prepare API call settings
-                let generationConfig = {};
-                if (currentTemperature !== null) generationConfig.temperature = currentTemperature;
-                if (currentTopP !== null) generationConfig.topP = currentTopP;
-                if (currentTopK !== null) generationConfig.topK = currentTopK;
-                if (currentMaxOutputTokens !== null) generationConfig.maxOutputTokens = currentMaxOutputTokens;
-                if (currentStopSequencesStr) {
-                    generationConfig.stopSequences = currentStopSequencesStr.split(',').map(s => s.trim()).filter(Boolean);
-                }
-
-                let systemInstruction = currentPromptTemplate ? { role: "system", parts: [{ text: currentPromptTemplate }] } : null;
-
-                // Construct the API URL
-                const apiUrl = useProxy
-                    ? `${proxyUrl}/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`
-                    : `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`;
-
-                // Measure time for the first non-cached chunk accurately
-                const isFirstChunk = index === 0;
-                const chunkStartTime = performance.now();
-
-                const translatedText = await translateChunk(
-                    chunkData, apiUrl,
-                    currentBaseDelay, currentQuotaDelay, currentLang,
-                    userFacingIndex, // Pass user-facing index
-                    totalChunks,
-                    generationConfig, systemInstruction
+                const translatedChunkTexts = await translateChunk(
+                    currentChunk, currentApiKey, currentBaseDelay, currentQuotaDelay, currentLang,
+                    i + 1, totalChunks, currentModel, currentPromptTemplate,
+                    currentTemperature, currentTopP, currentTopK, currentMaxOutputTokens, currentStopSequencesStr
                 );
 
-                // --- Timing Calculation --- Should happen *after* await
-                const chunkEndTime = performance.now();
-                const chunkDuration = (chunkEndTime - chunkStartTime) / 1000;
-                if (isFirstChunk) {
-                    firstChunkTime = chunkDuration;
-                    console.log(`First chunk time set: ${firstChunkTime.toFixed(2)}s`);
-                    // Update progress again to show the first estimate if needed
-                    updateProgress(index, totalChunks, null);
-                }
-                 // --- End Timing Calculation ---
+                 // ---- Timing END and Calculation ----
+                 const chunkEndTime = performance.now();
+                 const chunkDuration = (chunkEndTime - chunkStartTime) / 1000;
+                 console.log(`Chunk ${i+1} processed in ${chunkDuration.toFixed(2)}s`);
 
-                return { index, translatedText, fromCache: false };
+                 if (i === 0 && totalChunks > 1) { // Calculate after first chunk if multiple chunks
+                     firstChunkTime = chunkDuration; // Use the actual duration
+                     console.log(`First chunk time set: ${firstChunkTime.toFixed(2)}s`);
+                     // Update progress *again* to show the first time estimate
+                     updateProgress(i, totalChunks, null);
+                 }
+                 // ---- END Timing ----
 
-            } catch (error) {
-                console.error(`Error processing chunk ${userFacingIndex}:`, error);
-                failedChunksData.push({ index, chunkData: chunkData, reason: error.message || 'Unknown error' });
-                // Don't update progress here for failed chunks, let the loop continue
-                return { index, translatedText: null, error: true }; // Indicate error
+
+                currentChunk.forEach((entry, indexInChunk) => {
+                     const translatedText = translatedChunkTexts && indexInChunk < translatedChunkTexts.length
+                                             ? translatedChunkTexts[indexInChunk]
+                                             : entry.text;
+                     allTranslatedEntries.push({ ...entry, text: translatedText ?? entry.text });
+                });
+
+            } catch (chunkError) {
+                console.error(`Caught error for chunk ${i + 1}:`, chunkError);
+                const chunkIndexUserFacing = i + 1;
+                failedChunkIndices.push(chunkIndexUserFacing);
+                failedChunksData.push({ index: i, chunkData: currentChunk, reason: chunkError.message || 'Unknown error' });
+                showError(`ERROR on Chunk ${chunkIndexUserFacing}: ${chunkError.message}. Original text used (Retry option available).`, false);
+                currentChunk.forEach(entry => allTranslatedEntries.push(entry));
             }
-        })(); // Immediately invoke the async function
-    });
+        } // End chunk loop
 
-    // --- Process Results ---
-    try {
-        const results = await Promise.all(translationPromises);
+        // Store final results (mixed if errors occurred)
+        currentAllTranslatedEntries = [...allTranslatedEntries];
 
-        // Populate results array and update memory
-        results.forEach(result => {
-            if (result && !result.error && result.translatedText !== null) {
-                 // Store the successful translation at the correct index
-                 currentAllTranslatedEntries[result.index] = { id: result.index, text: result.translatedText };
-                // Update memory only if it wasn't from cache
-                if (!result.fromCache) {
-                    const originalChunk = chunks[result.index]; // Get original chunk data
-                    updateTranslationMemory(originalChunk, result.translatedText, currentLang);
-                }
-            } else if (result && result.error) {
-                // For failed chunks, store the original text to allow download/retry
-                 currentAllTranslatedEntries[result.index] = { id: result.index, text: chunks[result.index] }; // Store original
-            }
-        });
-
-        // Save memory to localStorage after all processing
-        localStorage.setItem('translationMemory', JSON.stringify(translationMemory));
-
-        const successfulTranslationsCount = results.filter(r => r && !r.error && r.translatedText !== null).length;
-        console.log(`Translation finished. Successful: ${successfulTranslationsCount}, Failed: ${failedChunksData.length}`);
-
-        // --- Handle Finish ---
-        const endTime = performance.now();
-        const duration = ((endTime - translationStartTime) / 1000).toFixed(1);
-        const failedChunkIndices = failedChunksData.map(f => f.index + 1);
-
-        if (failedChunkIndices.length > 0) {
-            const interfaceLang = localStorage.getItem('language') || 'English';
-            const isRTL = interfaceLang === 'Persian';
-
-            const errorMsg = isRTL
-                ? `ترجمه با ${failedChunkIndices.length} خطا در بخش(های): ${failedChunkIndices.join(', ')} به پایان رسید.`
-                : `Translation finished with ${failedChunkIndices.length} errors on chunk(s): ${failedChunkIndices.join(', ')}.`;
-            showError(errorMsg, false); // Show as error
-            if (timeEstimateSpan) timeEstimateSpan.textContent = isRTL ? `پایان با ${failedChunkIndices.length} خطا` : `Finished with ${failedChunkIndices.length} errors`;
-            progressBar.style.width = '100%'; // Set progress to 100% even with errors
-            progressText.textContent = isRTL ? '100% تکمیل شده' : '100% Complete'; // Update text too
-            displayRetryButtons(); // Show retry options
-        } else {
-            const interfaceLang = localStorage.getItem('language') || 'English';
-            const isRTL = interfaceLang === 'Persian';
-            const successMsg = isRTL ? `ترجمه موفقیت آمیز بود! (${duration} ثانیه)` : `Translation successful! (${duration}s)`;
-            showError(successMsg, true); // Show as success
-            if (timeEstimateSpan) timeEstimateSpan.textContent = isRTL ? "پایان موفقیت آمیز" : "Finished successfully";
-            progressBar.style.width = '100%'; // Ensure progress bar is full
-            progressText.textContent = isRTL ? '100% تکمیل شده' : '100% Complete';
-        }
-
-        // Always generate download link, even with errors, containing successful/original parts
+        // Reconstruct and Provide Initial Download Link
         generateAndDisplayDownloadLink();
 
-    } catch (error) {
-        console.error('Major error during translation processing:', error);
-        showError('An unexpected error occurred during translation.');
-    } finally {
-        submitButton.disabled = false;
+
+        // Final Status Message & Display Retry Buttons
+        const endTime = performance.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(1);
+        console.log(`Translation finished in ${duration} seconds.`);
+
+        displayRetryButtons(); // Display retry buttons if needed
+
+        // Get current interface language for messages
         const interfaceLang = localStorage.getItem('language') || 'English';
-        submitButtonText.textContent = interfaceLang === 'Persian' ? 'ترجمه' : 'Translate';
-    }
-}
+        const ipdfL = interfaceLang === 'Persian';
 
-// --- Generate Download Link (for .txt) ---
+        if (failedChunkIndices.length > 0) {
+             const errorMsg = ipdfL
+                ? `ترجمه در ${duration} ثانیه با ${failedChunkIndices.length} بخش ناموفق کامل شد: [${failedChunkIndices.join(', ')}]. دکمه تلاش مجدد موجود است.`
+                : `Complete in ${duration}s with ${failedChunkIndices.length} failed chunk(s): [${failedChunkIndices.join(', ')}]. Retry options available below.`;
+             showError(errorMsg, false);
+             if (timeEstimateSpan) timeEstimateSpan.textContent = ipdfL ? `پایان با ${failedChunkIndices.length} خطا` : `Finished with ${failedChunkIndices.length} errors`;
+        } else {
+             const successMsg = ipdfL ? `ترجمه موفقیت آمیز بود! (${duration} ثانیه)` : `Translation successful! (${duration}s)`;
+             showError(successMsg, true);
+             if (timeEstimateSpan) timeEstimateSpan.textContent = ipdfL ? "پایان موفقیت آمیز" : "Finished successfully";
+        }
+
+        saveApiKey();
+
+    } catch (error) {
+        console.error('Main translation handler error:', error);
+        showError(`An critical error occurred: ${error.message}`);
+        if (progressContainer) progressContainer.style.display = 'none';
+    } finally {
+        if (submitButton) submitButton.disabled = false;
+        // Update button text based on interface language AFTER process finishes
+        const finalButtonLang = localStorage.getItem('language') || 'English';
+        if (submitButtonText) submitButtonText.textContent = finalButtonLang === 'Persian' ? 'ترجمه' : 'Translate';
+    }
+} // End handleTranslate
+
+// --- NEW Functions for Retry Mechanism ---
+
 function generateAndDisplayDownloadLink() {
-    if (currentAllTranslatedEntries.length === 0) {
-        console.log("No translated entries to generate download link.");
-        return;
+    if (!downloadLinkContainer || !currentAllTranslatedEntries) return;
+
+    try {
+        // Sort entries numerically by ID before reconstructing
+        const sortedEntries = [...currentAllTranslatedEntries].sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+        const finalpdf = reconstructpdf(sortedEntries);
+
+        const blob = new Blob([`\uFEFF${finalpdf}`], { type: 'text/pdf;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const downloadFileName = `${currentOriginalFileName}_${currentLang}.pdf`;
+
+        // Simplified button text with language on second line
+        const interfaceLang = localStorage.getItem('language') || 'English';
+        const mainText = interfaceLang === 'Persian' ? 'دانلود فایل pdf' : 'Download Translated pdf';
+        const langText = `(${currentLang})`; // Language always in parenthesis
+
+        downloadLinkContainer.innerHTML = `<a href="${url}" download="${downloadFileName}">${mainText}<br>${langText}</a>`; // Added <br>
+        downloadLinkContainer.style.display = 'block';
+        console.log(`Download link generated/updated: ${downloadFileName}`);
+
+    } catch (error) {
+        console.error("Error generating download link:", error);
+        showError("Could not generate the download file.", false);
+        if (downloadLinkContainer) downloadLinkContainer.style.display = 'none';
     }
-
-    // Join the translated text chunks, handling potential undefined/null entries
-    const finalText = currentAllTranslatedEntries
-        .map(entry => entry?.text || '') // Use empty string for missing entries
-        .join('\n\n'); // Join chunks with double newline
-
-    if (!finalText.trim()) {
-        console.log("Generated text is empty, not creating download link.");
-        return;
-    }
-
-    // Use UTF-8 BOM for better compatibility with text editors
-    const blob = new Blob([`\uFEFF${finalText}`], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const downloadFileName = `${currentOriginalFileName}_${currentLang}.txt`; // Changed extension to .txt
-
-    const interfaceLang = localStorage.getItem('language') || 'English';
-    const mainText = interfaceLang === 'Persian' ? 'دانلود فایل متنی ترجمه شده' : 'Download Translated Text';
-
-    downloadLinkContainer.innerHTML = `
-        <a href="${url}" download="${downloadFileName}" class="button download-button">
-            <i class="fas fa-download"></i> ${mainText}
-        </a>
-        ${failedChunksData.length > 0 ? `
-        <span class="retry-info">(Retry failed chunks below)</span>
-        ` : ''}
-    `;
-    downloadLinkContainer.style.display = 'block';
-    console.log(`Download link generated for: ${downloadFileName}`);
 }
 
-// --- Retry Logic (Adapted for plain text) ---
 function displayRetryButtons() {
     if (!failedChunksData || failedChunksData.length === 0) {
          const existingRetryContainer = document.getElementById('retry-container');
@@ -932,7 +985,7 @@ async function handleManualRetry(event) {
     const internalChunkIndex = parseInt(button.dataset.chunkIndex, 10);
     const failedChunkInfo = failedChunksData.find(fc => fc.index === internalChunkIndex);
 
-    if (!failedChunkInfo || !failedChunkInfo.chunkData) { // Check chunkData exists
+    if (!failedChunkInfo) {
         console.error("Could not find failed chunk data for index:", internalChunkIndex);
         showError("Error: Could not find data for this chunk retry.", false);
         return;
@@ -942,52 +995,59 @@ async function handleManualRetry(event) {
     const originalButtonHTML = button.innerHTML;
     button.disabled = true;
     button.classList.add('loading');
+    // Ensure spinner span exists in the button's HTML structure if needed, or construct it here
     button.innerHTML = `<span class="spinner"></span> ${localStorage.getItem('language') === 'Persian' ? `در حال تلاش مجدد بخش ${userFacingIndex}...` : `Retrying Chunk ${userFacingIndex}...`}`;
     hideError(); // Hide previous general errors
     console.log(`Retrying translation for Chunk ${userFacingIndex}...`);
 
     try {
-        // Prepare API call settings (same as in main loop)
-        let generationConfig = {};
-        if (currentTemperature !== null) generationConfig.temperature = currentTemperature;
-        if (currentTopP !== null) generationConfig.topP = currentTopP;
-        if (currentTopK !== null) generationConfig.topK = currentTopK;
-        if (currentMaxOutputTokens !== null) generationConfig.maxOutputTokens = currentMaxOutputTokens;
-        if (currentStopSequencesStr) {
-            generationConfig.stopSequences = currentStopSequencesStr.split(',').map(s => s.trim()).filter(Boolean);
-        }
-        let systemInstruction = currentPromptTemplate ? { role: "system", parts: [{ text: currentPromptTemplate }] } : null;
-        const useProxy = useProxyCheckbox.checked; // Get current proxy setting
-        const apiUrl = useProxy
-            ? `${proxyUrl}/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`
-            : `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`;
-
-        // Call translateChunk with the failed text chunk
-        const translatedText = await translateChunk(
-            failedChunkInfo.chunkData, // Pass the failed text string directly
-            apiUrl,
+        // Call translateChunk with stored parameters
+        // Pass '1' for totalChunksForLog - it won't update the main bar,
+        // but prevents the ReferenceError inside translateChunk if it logs.
+        const translatedChunkTexts = await translateChunk(
+            failedChunkInfo.chunkData,
+            currentApiKey,
             currentBaseDelay,
             currentQuotaDelay,
             currentLang,
             userFacingIndex, // User-facing index for logging
-            0, // Pass 0 for totalChunksForLog to signal it's a retry
-            generationConfig,
-            systemInstruction
+            1, // Pass 1 for totalChunksForLog to avoid error
+            currentModel,
+            currentPromptTemplate,
+            currentTemperature,
+            currentTopP,
+            currentTopK,
+            currentMaxOutputTokens,
+            currentStopSequencesStr
         );
 
-        // --- Update the main data store --- (Ensure index is valid)
-        if (internalChunkIndex >= 0 && internalChunkIndex < currentAllTranslatedEntries.length) {
-            currentAllTranslatedEntries[internalChunkIndex] = { id: internalChunkIndex, text: translatedText };
-            console.log(`Successfully retried chunk ${userFacingIndex}. Updated entry.`);
+        // --- Update the main data store ---
+        let entriesUpdated = 0;
+        const firstEntryId = parseInt(failedChunkInfo.chunkData[0].id, 10);
+        const startIndex = currentAllTranslatedEntries.findIndex(entry => parseInt(entry.id, 10) === firstEntryId);
 
-            // Update translation memory
-            updateTranslationMemory(failedChunkInfo.chunkData, translatedText, currentLang);
-            localStorage.setItem('translationMemory', JSON.stringify(translationMemory)); // Save memory immediately
-
-        } else {
-             console.error(`Invalid index ${internalChunkIndex} for retry update.`);
-             throw new Error(`Invalid index during retry update.`);
+        if (startIndex === -1) {
+             throw new Error(`Could not find starting entry ID ${firstEntryId} in current results.`);
         }
+
+        failedChunkInfo.chunkData.forEach((originalEntry, indexInChunk) => {
+            const targetIndex = startIndex + indexInChunk;
+            if (targetIndex < currentAllTranslatedEntries.length &&
+                parseInt(currentAllTranslatedEntries[targetIndex].id, 10) === parseInt(originalEntry.id, 10)) {
+                 const newText = (translatedChunkTexts && indexInChunk < translatedChunkTexts.length)
+                                 ? translatedChunkTexts[indexInChunk]
+                                 : originalEntry.text;
+                 currentAllTranslatedEntries[targetIndex].text = newText ?? originalEntry.text;
+                 entriesUpdated++;
+            } else {
+                console.warn(`Mismatch/bounds error updating entry ID ${originalEntry.id} at index ${targetIndex}`);
+            }
+        });
+
+        if (entriesUpdated !== failedChunkInfo.chunkData.length) {
+             console.warn(`Expected ${failedChunkInfo.chunkData.length}, updated ${entriesUpdated}.`);
+        }
+        console.log(`Successfully retried chunk ${userFacingIndex}. Updated ${entriesUpdated} entries.`);
 
         // Remove this chunk from the failed list
         failedChunksData = failedChunksData.filter(fc => fc.index !== internalChunkIndex);
@@ -996,7 +1056,7 @@ async function handleManualRetry(event) {
         button.remove(); // Remove the button on success
         showError(`Chunk ${userFacingIndex} successfully translated!`, true);
         generateAndDisplayDownloadLink(); // Update download link
-        displayRetryButtons(); // Refresh button list (will remove container if empty)
+        displayRetryButtons(); // Refresh button list
 
         // Update main status if all retries are done
         if (failedChunksData.length === 0) {
@@ -1012,89 +1072,12 @@ async function handleManualRetry(event) {
         button.disabled = false;
         button.classList.remove('loading');
         button.innerHTML = originalButtonHTML; // Restore original content
-    } finally {
-         // Ensure loading state is always removed from button if it still exists
-         const stillExistsButton = document.querySelector(`.retry-button[data-chunk-index="${internalChunkIndex}"]`);
-         if(stillExistsButton) {
-            stillExistsButton.disabled = false;
-            stillExistsButton.classList.remove('loading');
-            if (!stillExistsButton.querySelector('.spinner')) { // Avoid adding multiple spinners if innerHTML wasn't set
-                 stillExistsButton.innerHTML = originalButtonHTML;
-            }
-         }
     }
-}
+} // End handleManualRetry
 
 // --- Event Listeners Setup --- (Moved inside DOMContentLoaded)
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded and parsed");
-
-    // --- Initialize Libraries requiring DOM/window objects ---
-    // Set PDF.js worker source *after* the library script has loaded
-    if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        console.log('PDF.js worker source set.');
-    } else {
-        console.error('PDF.js library (pdfjsLib) not found. PDF functionality will fail.');
-        showError('Error initializing PDF library. Please check your internet connection or browser extensions.');
-    }
-
-    // Initialize Dropzone only if the element exists
-    if (dropzoneElement) {
-        try {
-            const myDropzone = new Dropzone(dropzoneElement, {
-                url: "#", // Dummy URL
-                autoProcessQueue: false,
-                acceptedFiles: ".pdf", // Changed to PDF
-                maxFiles: 1,
-                addRemoveLinks: true,
-                dictDefaultMessage: dropzoneElement.querySelector('.dz-message') ? dropzoneElement.querySelector('.dz-message').innerHTML : "<p>Drop files here or click to upload.</p>",
-                dictRemoveFile: "Remove",
-                dictMaxFilesExceeded: "You can only upload one file.",
-                dictInvalidFileType: "You can only upload .pdf files.", // Changed to PDF
-                init: function() {
-                    this.on("addedfile", function(file) {
-                        if (this.files.length > 1) {
-                            this.removeFile(this.files[0]);
-                        }
-                        uploadedFile = file;
-                        hideError();
-                        console.log("File added:", file.name);
-                    });
-                    this.on("removedfile", function(file) {
-                        uploadedFile = null;
-                        console.log("File removed:", file.name);
-                    });
-                    this.on("error", function(file, errorMsg) {
-                        console.error("Dropzone error:", errorMsg);
-                        let userMessage = "Error adding file.";
-                        if (typeof errorMsg === 'string') {
-                            if (errorMsg.includes("You can only upload")) userMessage = errorMsg;
-                            else if (errorMsg.includes("File is too big")) userMessage = "File is too large.";
-                            else userMessage = "Invalid file. Please ensure it's a valid .pdf file."; // Changed to PDF
-                        }
-                        showError(userMessage);
-                        if (file.previewElement) {
-                            const removeLink = file.previewElement.querySelector("[data-dz-remove]");
-                            if (removeLink) { removeLink.click(); }
-                            else { file.previewElement.remove(); }
-                        }
-                        uploadedFile = null;
-                    });
-                }
-            });
-            console.log('Dropzone initialized.');
-        } catch (e) {
-            console.error("Failed to initialize Dropzone:", e);
-            if (dropzoneElement) {
-                dropzoneElement.textContent = "Error initializing file drop zone.";
-                dropzoneElement.style.border = "2px dashed var(--error-color)";
-            }
-        }
-    } else {
-        console.warn("Dropzone element '#dropzone-upload' not found.");
-    }
-    // --- End Library Initializations ---
 
     // Load saved theme or default to light
     const savedTheme = localStorage.getItem('theme');
@@ -1127,7 +1110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (clearMemoryButton) clearMemoryButton.addEventListener('click', clearTranslationMemory);
     if (togglePasswordBtn) togglePasswordBtn.addEventListener('click', togglePasswordVisibility);
     if (rememberMeCheckbox) rememberMeCheckbox.addEventListener('change', saveApiKey);
-    if (translateForm) translateForm.addEventListener('submit', handleFormSubmit);
+    if (translateForm) translateForm.addEventListener('submit', handleTranslate);
 
     inputMethodRadios.forEach(radio => {
         radio.addEventListener('change', (e) => {

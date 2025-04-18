@@ -1,4 +1,4 @@
-const CACHE_NAME = 'srt-translator-v1.1'; // Change version to force update
+const CACHE_NAME = 'pdf-translator-v1.1'; // Change version to force update
 const urlsToCache = [
   './', // Represents the root index.html
   './index.html',
