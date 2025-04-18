@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en"> <!-- JS will add dark-mode class here -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subtitle Translator</title>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Theme Color for Browsers -->
+    <meta name="theme-color" content="#007bff"> <!-- Match manifest -->
+
+    <!-- iOS Specific Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> <!-- or default or black -->
+    <link rel="apple-touch-icon" href="icons/icon-192.png"> <!-- Use a suitable icon -->
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Dropzone CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.css" integrity="sha512-jU/7UFiaW5UBGODEopEqnbIAHOI8fO6T99m7Tsmqs2gkdujByJfkCbbfPSN4Wlqlb9TGnsuC0YgUgWkRBK7B9A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Link to your custom CSS -->
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <!-- PDF.js Library (add these two lines) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-q+4liFwdPC/bNdhUpZx6azD6Evo7SvpIe+tG94/Y7vdN1xLdJb77/k1t/h3o2L0a+17n/pQ8y5XGzIlnsC2uPg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js" integrity="sha512-BbrZ76UN4legck7VchNfA45MM9gwG2/2+RldwSFImA7J6UEq6Q5+HsaqL9VIBN6ApXhxt4J/uJ+3FzSltX2HKA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <div class="container">
+        <!-- Header with controls -->
+        <div class="top-bar">
+             <h1 id="page-title">PDF Translator</h1>
+             <div class="controls">
+                 <button id="languageToggle" class="control-btn" aria-label="Toggle language" title="Toggle language (English/Persian)">
+                     <i class="fas fa-language"></i>
+                 </button>
+                 <button id="clear-memory-button" class="control-btn" aria-label="Clear translation memory" title="Clear translation memory">
+                     <i class="fa fa-trash"></i>
+                 </button>
+                 <button id="themeToggle" class="control-btn" aria-label="Toggle theme" title="Toggle light/dark theme">
+                     <i class="fas fa-moon"></i> <!-- JS updates this icon -->
+                 </button>
+            </div>
+        </div>
+
+        <p id="upload-instructions" class="instructions">
+            Upload a PDF file or paste text, provide your Gemini API key, and select the target language.
+        </p>
+        <p id="warning-message" class="warning">
+           ⚠️ If in Iran, enable "Use Proxy" in Settings for Gemini API access due to sanctions.
+        </p>
+
+        <form id="translate-form">
+            <!-- Input Method Selection -->
+            <div class="form-group">
+                <label id="input-method-label" class="form-label">Input Method:</label>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="input_method" value="file" checked> Upload File
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="input_method" value="text"> Paste Text
+                    </label>
+                </div>
+            </div>
+
+            <!-- File Input Area -->
+            <div id="file-input" class="form-group input-section">
+                <label id="file-label" class="form-label">Upload PDF File:</label>
+                <div id="dropzone-upload" class="dropzone">
+                    <div class="dz-message">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Drag & drop PDF file here<br>or click to browse</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text Input Area -->
+            <div id="text-input" class="form-group input-section" style="display: none;">
+                <label id="text-label" class="form-label" for="srt_text">Paste Text Content:</label>
+                <textarea id="srt_text" name="srt_text" rows="6" placeholder="Paste your text content here..."></textarea>
+            </div>
+
+            <!-- API Key -->
+            <div class="form-group">
+                <label id="api-key-label" class="form-label" for="api_key">Gemini API Key:</label>
+                <div class="api-key-container">
+                    <input type="password" id="api_key" name="api_key" placeholder="Enter your Gemini API key" required>
+                    <button type="button" class="toggle-password" id="togglePasswordBtn" aria-label="Toggle API key visibility">
+                         <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="checkbox-group">
+                     <input type="checkbox" id="remember_me" name="remember_me">
+                     <label id="remember-me-label" for="remember_me">Remember API key</label>
+                </div>
+                 <p id="api-key-note" class="note">Get your API key from <a href='https://aistudio.google.com/app/apikey' target='_blank'>Google AI Studio</a>.</p>
+            </div>
+
+             <!-- Target Language -->
+            <div class="form-group">
+                 <label id="lang-label" class="form-label" for="lang-input">Target Language:</label>
+                 <input type="text" id="lang-input" name="lang" value="Persian (Farsi)" placeholder="e.g., Spanish, French, Japanese" required>
+            </div>
+
+            <!-- Advanced Settings -->
+            <details class="settings">
+                <!-- Summary Text now wrapped in span for easier targeting -->
+                <summary><span id="advanced-settings-summary-text">Advanced Settings</span> <i class="summary-icon fas fa-chevron-down"></i></summary>
+                <div class="settings-content">
+                     <p class="warning advanced-warning-message">
+                        ⚠️ Adjusting these settings can affect performance, cost, and translation quality. Proceed with caution.
+                    </p>
+
+                    <div class="form-group">
+                         <label id="model-label" class="form-label" for="model">Gemini Model:</label>
+                         <select id="model" name="model">
+                            <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash</option>
+                            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
+                            <option value="gemini-2.5-pro-preview-03-25">Gemini 2.5 Pro</option>
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                            <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash-8B</option>
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                         </select>
+                         <p class="note">Select the AI model for translation.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label id="temperature-label" class="form-label" for="temperature">Temperature:</label>
+                        <input type="number" id="temperature" name="temperature" min="0" max="2" step="0.1" value="0.7" placeholder="e.g., 0.7">
+                        <p class="note">Controls randomness (0.0-2.0). Higher values = more creative/random.</p>
+                   </div>
+
+                   <div class="form-group">
+                        <label id="top-p-label" class="form-label" for="top_p">Top-P:</label>
+                        <input type="number" id="top_p" name="top_p" min="0" max="1" step="0.05" value="0.95" placeholder="e.g., 0.95">
+                        <p class="note">Nucleus sampling (0.0-1.0). Considers tokens comprising the top P probability mass.</p>
+                   </div>
+
+                   <div class="form-group">
+                        <label id="top-k-label" class="form-label" for="top_k">Top-K:</label>
+                        <input type="number" id="top_k" name="top_k" min="1" step="1" value="40" placeholder="e.g., 40">
+                        <p class="note">Sample from the K most likely tokens (integer >= 1).</p>
+                   </div>
+
+                   <div class="form-group">
+                        <label id="max-output-tokens-label" class="form-label" for="max_output_tokens">Max Output Tokens:</label>
+                        <input type="number" id="max_output_tokens" name="max_output_tokens" min="1" step="1" value="8192" placeholder="e.g., 8192">
+                        <p class="note">Maximum number of tokens to generate per request (check model limits).</p>
+                   </div>
+
+                   <div class="form-group">
+                        <label id="stop-sequences-label" class="form-label" for="stop_sequences">Stop Sequences (comma-separated):</label>
+                        <input type="text" id="stop_sequences" name="stop_sequences" placeholder="e.g., END, ---">
+                        <p class="note">Stop generation if these strings appear. Leave blank if none.</p>
+                   </div>
+                   <!-- End of New Inputs -->
+
+                   <hr style="border: none; border-top: 1px dashed var(--input-border); margin: 0.5rem 0;">
+
+                    <div class="checkbox-group"> <!-- Proxy checkbox -->
+                         <input type="checkbox" id="useProxyCheckbox" name="useProxyCheckbox">
+                         <label id="use-proxy-label" for="useProxyCheckbox">Use Proxy</label>
+                         <p class="note">Enable if direct Gemini API access is blocked (e.g., sanctioned regions).</p>
+                     </div>
+
+                    <div class="form-group">
+                         <label id="base-delay-label" class="form-label" for="base_delay">Base Delay (ms):</label>
+                         <input type="number" id="base_delay" name="base_delay" min="100" value="1000" placeholder="1000" required>
+                         <p class="note">Delay between successful chunk requests.</p>
+                    </div>
+
+                    <div class="form-group">
+                         <label id="quota-delay-label" class="form-label" for="quota_delay">Quota Delay (ms):</label>
+                         <input type="number" id="quota_delay" name="quota_delay" min="1000" value="60000" placeholder="60000" required>
+                         <p class="note">Delay after hitting a rate limit (429 error).</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label id="chunk-count-label" class="form-label" for="chunk_count">Number of Chunks:</label>
+                        <input type="number" id="chunk_count" name="chunk_count" min="1" max="100" value="20" placeholder="20" required>
+                         <p id="chunk-count-note" class="note">Split text into this many parts (1-100).</p>
+                    </div>
+
+                    <div class="form-group">
+                         <label id="translation-prompt-label" class="form-label" for="translation_prompt">System Prompt / Instructions:</label>
+                         <textarea id="translation_prompt" name="translation_prompt" rows="5">Translate the following text into the target language. Respond ONLY with the translated text.</textarea>
+                         <p class="note">Instructions for the AI model.</p>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Submit Button -->
+            <div class="submit-container">
+                <button id="submit-button" type="submit" class="button primary-button">
+                     <span class="button-text">Translate</span>
+                     <span class="shortcut-hint">(Ctrl+Enter)</span>
+                </button>
+            </div>
+        </form>
+
+        <!-- Progress Display -->
+        <div class="progress-container" id="progress-container">
+            <div class="progress-bar">
+                <div class="progress" id="progress"></div>
+            </div>
+            <div class="progress-text" id="progress-text">0% Complete</div>
+            <div class="progress-details">
+                <span id="chunk-status">Processing chunk: 0/0</span>
+                <span id="time-estimate">Estimated time: calculating...</span>
+            </div>
+        </div>
+
+        <!-- Download Link Area -->
+        <div class="download-link" id="download-link"></div>
+
+        <!-- Error Message Area -->
+        <div class="error-message" id="error-message"></div>
+
+    </div> <!-- End .container -->
+
+    <footer class="footer">
+        <p>ساخته شده با ❤️ توسط <a href="https://x.com/yebekhe" target="_blank" rel="noopener noreferrer">yebekhe</a></p>
+        <!-- English version (will be swapped by JS) -->
+        <p style="display: none;">Created with ❤️ by <a href="https://x.com/yebekhe" target="_blank" rel="noopener noreferrer">yebekhe</a></p>
+    </footer>
+
+    <!-- Dropzone JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.js" integrity="sha512-U2WE1ktpMTuRBPoCFDzomoIorbOyUv0sP8B+INA3EzNAhehbzED1rOJg6bCqPf/Tuposxb5ja/MAUnC8THSbLQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- Link to your custom JavaScript -->
+    <script src="assets/script.js"></script>
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // --- IMPORTANT: Adjust the path based on your deployment ---
+                // If deploying to https://itsyebekhe.github.io/subtitle-translate/ use '/subtitle-translate/sw.js'
+                // If deploying to the root domain https://yourusername.github.io/ use '/sw.js'
+                const swPath = '/subtitle-translate/sw.js'; // <--- ADJUST THIS PATH if needed!
+                // -------------------------------------------------------------
+
+                navigator.serviceWorker.register(swPath)
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('ServiceWorker registration failed: ', error);
+                    });
+            });
+        } else {
+             console.log('Service Worker not supported in this browser.');
+        }
+    </script>
+</body>
+</html>

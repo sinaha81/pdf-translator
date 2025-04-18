@@ -1,0 +1,25 @@
+{
+    "name": "Subtitle Translator",
+    "short_name": "Sub Trans",
+    "description": "Translate SRT subtitle files using Google Gemini API directly in your browser.",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#f0f2f5",
+    "theme_color": "#007bff",
+    "orientation": "portrait-primary",
+    "scope": "./",
+    "icons": [
+      {
+        "src": "icons/icon-192.png",
+        "type": "image/png",
+        "sizes": "192x192",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "icons/icon-512.png",
+        "type": "image/png",
+        "sizes": "512x512",
+        "purpose": "any maskable"
+      }
+    ]
+  }
