@@ -73,8 +73,8 @@ const quotaDelayLabel = document.getElementById('quota-delay-label');
 const chunkCountLabel = document.getElementById('chunk-count-label');
 const translationPromptLabel = document.getElementById('translation-prompt-label');
 
-// PDF.js Worker setup
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// PDF.js Worker setup - REMOVED FROM HERE
+// pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // Function to extract text from PDF file
 async function extractPdfText(file) {
@@ -522,58 +522,39 @@ function splitTextIntoChunks(text, chunkCount) {
     return chunks;
 }
 
-// --- API Interaction (Corrected Proxy Logic, Gen Params, and Retry Call Safety) ---
+// --- API Interaction (Simplified for plain text chunks) ---
 async function translateChunk(
-    chunk, apiUrl, baseDelayMs, quotaDelayMs, lang,
+    chunkText, // Now accepts plain text string
+    apiUrl, baseDelayMs, quotaDelayMs, lang,
     chunkIndex, // User-facing index (1-based)
     totalChunksForLog, // Total chunks for logging (can be 0/null during retry)
-    generationConfig, systemInstruction
+    generationConfig, systemInstruction // Pass config and prompt object
 ) {
-    // Input validation at the start
-    if (!chunk || chunk.length === 0) {
-        console.warn(`TranslateChunk called with empty chunk (Index: ${chunkIndex})`);
-        return []; // Return empty array for empty chunk
+    // Input validation
+    if (!chunkText || !chunkText.trim()) {
+        console.warn(`TranslateChunk called with empty chunk text (Index: ${chunkIndex})`);
+        return ''; // Return empty string for empty chunk
     }
     if (!apiUrl || !lang) {
         throw new Error(`TranslateChunk called with missing required parameters (apiUrl, lang) for chunk ${chunkIndex}`);
     }
 
-    // --- Update Progress / Log Start (Conditional on totalChunksForLog) ---
-    // Only update main progress bar if called from initial translation loop
+    // --- Update Progress / Log Start ---
     if (totalChunksForLog && totalChunksForLog > 0) {
-        // Note: updateProgress uses 0-based index internally, but we receive 1-based chunkIndex
          updateProgress(chunkIndex - 1, totalChunksForLog, chunkIndex === 1 ? performance.now() : null);
     }
-    console.log(`Starting Chunk ${chunkIndex}${totalChunksForLog ? `/${totalChunksForLog}` : ''} (${chunk.length} entries)`);
+    console.log(`Starting Chunk ${chunkIndex}${totalChunksForLog ? `/${totalChunksForLog}` : ''} (Text length: ${chunkText.length})`);
     // --- End Progress Update ---
 
-    const sourceTexts = chunk.map(entry => entry.text);
-    const cachedTranslations = sourceTexts.map(text => findInTranslationMemory(text, lang));
-    const textsToTranslateMap = new Map();
-    let cacheHitCount = 0;
-
-    sourceTexts.forEach((text, index) => {
-        if (cachedTranslations[index] === undefined) {
-            if (text?.trim()) { textsToTranslateMap.set(index, text); }
-             else { cachedTranslations[index] = ''; }
-        } else { cacheHitCount++; }
-    });
-
-    if (textsToTranslateMap.size === 0) {
-        console.log(`Chunk ${chunkIndex}: All ${chunk.length} entries cached or empty.`);
-        await new Promise(resolve => setTimeout(resolve, 50));
-        return cachedTranslations;
+    // Construct the prompt using the system instruction and the chunk text
+    const contents = [];
+    if (systemInstruction && systemInstruction.parts && systemInstruction.parts.length > 0) {
+        contents.push(systemInstruction);
     }
-
-    if (cacheHitCount > 0) console.log(`Chunk ${chunkIndex}: ${cacheHitCount} from memory. Translating ${textsToTranslateMap.size}.`);
-
-    const separator = "\n---\n";
-    const indicesToTranslate = Array.from(textsToTranslateMap.keys());
-    const combinedText = indicesToTranslate.map(index => textsToTranslateMap.get(index)).join(separator);
-    const effectivePrompt = `${systemInstruction}\n\nTranslate the following text into ${lang}. Respond ONLY with the translated text lines, separated by "${separator.trim()}", maintaining the original number of separated lines.\n\nInput Text:\n${combinedText}`;
+    contents.push({ role: "user", parts: [{ text: chunkText }] });
 
     let finalPayload = {
-         contents: [{ parts: [{ text: effectivePrompt }] }],
+         contents: contents,
          safetySettings: [
              { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
              { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }, { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
@@ -625,7 +606,6 @@ async function translateChunk(
 
             if (finishReason === "MAX_TOKENS") {
                 console.warn(`Chunk ${chunkIndex}: Finished due to MAX_TOKENS limit. Output might be truncated.`);
-                // Show non-blocking warning to user *only* if called from main loop
                 if (totalChunksForLog && totalChunksForLog > 0) {
                      showError(`Warning: Chunk ${chunkIndex} output may be truncated due to token limit (${generationConfig.maxOutputTokens}).`, false);
                 }
@@ -634,37 +614,24 @@ async function translateChunk(
             if (responseText === undefined || responseText === null) {
                  console.error(`Invalid API response structure (Chunk ${chunkIndex}): Finish Reason: ${finishReason}`, JSON.stringify(data).substring(0, 300));
                  if (finishReason && finishReason !== "STOP" && finishReason !== "MAX_TOKENS") {
-                      throw new Error(`API Error: No text returned. Finish reason: ${finishReason}.`);
+                     // If safety blocked, try to get the category
+                     const blockedReason = data?.promptFeedback?.blockReason;
+                     const safetyRatings = data?.candidates?.[0]?.safetyRatings;
+                     let safetyMessage = '';
+                     if (blockedReason) safetyMessage = ` Blocked Reason: ${blockedReason}.`;
+                     if (safetyRatings) safetyMessage += ` Ratings: ${JSON.stringify(safetyRatings)}`;
+                      throw new Error(`API Error: No text returned. Finish reason: ${finishReason}.${safetyMessage}`);
                  }
-                 if (combinedText.trim() !== "") {
-                      throw new Error('Invalid API response: No text found, but input was not empty.');
-                 }
-                 // Allow empty response if input was empty/whitespace
+                 // Allow empty response if finish reason is STOP or MAX_TOKENS
+                 console.warn(`Chunk ${chunkIndex}: Received empty response text but finish reason was ${finishReason}. Returning empty string.`);
+                 return ''; // Return empty string for valid empty responses
             }
 
-            const rawTranslatedText = (responseText || "").trim();
-            const translatedLines = rawTranslatedText.split(separator.trim()).map(line => line.trim());
-
-            if (rawTranslatedText !== "" && translatedLines.length !== textsToTranslateMap.size) {
-                 console.error(`Chunk ${chunkIndex}: Mismatch! Expected ${textsToTranslateMap.size} lines, Got ${translatedLines.length}.`);
-                 console.error("Received response sample:", rawTranslatedText.substring(0, 200) + "...");
-                 if (attempts < maxAttempts -1) {
-                     attempts++; console.warn(`Retrying chunk ${chunkIndex} due to line mismatch...`);
-                     await new Promise(resolve => setTimeout(resolve, baseDelayMs * 1.5)); continue;
-                 } else { throw new Error(`Response lines (${translatedLines.length}) != input lines (${textsToTranslateMap.size}) after retries.`); }
-             }
-
-            const finalChunkTranslations = [...cachedTranslations];
-             translatedLines.forEach((translatedText, i) => {
-                 const originalIndex = indicesToTranslate[i];
-                 const sourceText = sourceTexts[originalIndex];
-                 finalChunkTranslations[originalIndex] = translatedText;
-                 updateTranslationMemory(sourceText, translatedText, lang);
-             });
+            const translatedText = (responseText || "").trim(); // Return the translated text directly
 
             console.log(`Chunk ${chunkIndex} translated successfully.`);
             await new Promise(resolve => setTimeout(resolve, baseDelayMs)); // Base delay after success
-            return finalChunkTranslations;
+            return translatedText;
 
         } catch (error) {
             console.error(`Error in translateChunk ${chunkIndex} (Attempt ${attempts + 1}):`, error);
@@ -737,9 +704,10 @@ async function handleFormSubmit(event) {
 
     // --- Prepare for Translation ---
     const totalChunks = chunks.length;
-    currentAllTranslatedEntries = []; // Reset for new translation
+    currentAllTranslatedEntries = new Array(totalChunks).fill(null); // Initialize array with nulls
     failedChunksData = []; // Reset failed chunks
     firstChunkTime = 0; // Reset timer
+    const translationStartTime = performance.now(); // Start overall timer
     showProgress();
     updateProgress(0, totalChunks, 0); // Initial progress update
     submitButton.disabled = true;
@@ -747,64 +715,99 @@ async function handleFormSubmit(event) {
 
     // --- Start Translation Process ---
     const translationPromises = chunks.map((chunkData, index) => {
-        // Check memory before API call
-        const cachedTranslation = findInTranslationMemory(chunkData, currentLang);
-        if (cachedTranslation) {
-            console.log(`Chunk ${index + 1}/${totalChunks}: Found in memory.`);
-            currentAllTranslatedEntries[index] = { id: index, text: cachedTranslation };
-            updateProgress(index + 1, totalChunks, firstChunkTime);
-            return Promise.resolve({ index, translatedText: cachedTranslation, fromCache: true });
-        }
+        return (async () => { // Use async IIFE to handle awaits
+            const userFacingIndex = index + 1;
+            try {
+                // Check memory before API call
+                const cachedTranslation = findInTranslationMemory(chunkData, currentLang);
+                if (cachedTranslation !== undefined) { // Check for undefined, allow empty string from cache
+                    console.log(`Chunk ${userFacingIndex}/${totalChunks}: Found in memory.`);
+                     // Calculate progress based on index
+                     const currentProgressTime = (index === 0 && totalChunks > 1) ? translationStartTime : null;
+                     updateProgress(index, totalChunks, currentProgressTime);
+                    return { index, translatedText: cachedTranslation, fromCache: true };
+                }
 
-        // Prepare API call settings
-        let generationConfig = {};
-        if (currentTemperature !== null) generationConfig.temperature = currentTemperature;
-        if (currentTopP !== null) generationConfig.topP = currentTopP;
-        if (currentTopK !== null) generationConfig.topK = currentTopK;
-        if (currentMaxOutputTokens !== null) generationConfig.maxOutputTokens = currentMaxOutputTokens;
-        if (currentStopSequencesStr) {
-            generationConfig.stopSequences = currentStopSequencesStr.split(',').map(s => s.trim()).filter(Boolean);
-        }
+                // Prepare API call settings
+                let generationConfig = {};
+                if (currentTemperature !== null) generationConfig.temperature = currentTemperature;
+                if (currentTopP !== null) generationConfig.topP = currentTopP;
+                if (currentTopK !== null) generationConfig.topK = currentTopK;
+                if (currentMaxOutputTokens !== null) generationConfig.maxOutputTokens = currentMaxOutputTokens;
+                if (currentStopSequencesStr) {
+                    generationConfig.stopSequences = currentStopSequencesStr.split(',').map(s => s.trim()).filter(Boolean);
+                }
 
-        let systemInstruction = currentPromptTemplate ? { role: "system", parts: [{ text: currentPromptTemplate }] } : null;
+                let systemInstruction = currentPromptTemplate ? { role: "system", parts: [{ text: currentPromptTemplate }] } : null;
 
-        // Construct the API URL
-        const apiUrl = useProxy
-            ? `${proxyUrl}/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`
-            : `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`;
+                // Construct the API URL
+                const apiUrl = useProxy
+                    ? `${proxyUrl}/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`
+                    : `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`;
 
-        return translateChunk(
-            chunkData, apiUrl, // Pass full URL
-            currentBaseDelay, currentQuotaDelay, currentLang,
-            index, totalChunks,
-            generationConfig, systemInstruction // Pass config and prompt
-        );
+                // Measure time for the first non-cached chunk accurately
+                const isFirstChunk = index === 0;
+                const chunkStartTime = performance.now();
+
+                const translatedText = await translateChunk(
+                    chunkData, apiUrl,
+                    currentBaseDelay, currentQuotaDelay, currentLang,
+                    userFacingIndex, // Pass user-facing index
+                    totalChunks,
+                    generationConfig, systemInstruction
+                );
+
+                // --- Timing Calculation --- Should happen *after* await
+                const chunkEndTime = performance.now();
+                const chunkDuration = (chunkEndTime - chunkStartTime) / 1000;
+                if (isFirstChunk) {
+                    firstChunkTime = chunkDuration;
+                    console.log(`First chunk time set: ${firstChunkTime.toFixed(2)}s`);
+                    // Update progress again to show the first estimate if needed
+                    updateProgress(index, totalChunks, null);
+                }
+                 // --- End Timing Calculation ---
+
+                return { index, translatedText, fromCache: false };
+
+            } catch (error) {
+                console.error(`Error processing chunk ${userFacingIndex}:`, error);
+                failedChunksData.push({ index, chunkData: chunkData, reason: error.message || 'Unknown error' });
+                // Don't update progress here for failed chunks, let the loop continue
+                return { index, translatedText: null, error: true }; // Indicate error
+            }
+        })(); // Immediately invoke the async function
     });
 
     // --- Process Results ---
     try {
         const results = await Promise.all(translationPromises);
-        const successfulTranslations = results.filter(r => r && r.translatedText !== null);
 
-        // Store successful translations in memory
-        successfulTranslations.forEach(result => {
-            if (!result.fromCache) {
-                // Find original chunk data based on index
-                const originalChunk = chunks[result.index];
-                updateTranslationMemory(originalChunk, result.translatedText, currentLang);
+        // Populate results array and update memory
+        results.forEach(result => {
+            if (result && !result.error && result.translatedText !== null) {
+                 // Store the successful translation at the correct index
+                 currentAllTranslatedEntries[result.index] = { id: result.index, text: result.translatedText };
+                // Update memory only if it wasn't from cache
+                if (!result.fromCache) {
+                    const originalChunk = chunks[result.index]; // Get original chunk data
+                    updateTranslationMemory(originalChunk, result.translatedText, currentLang);
+                }
+            } else if (result && result.error) {
+                // For failed chunks, store the original text to allow download/retry
+                 currentAllTranslatedEntries[result.index] = { id: result.index, text: chunks[result.index] }; // Store original
             }
-            // Store the successful translation at the correct index
-            currentAllTranslatedEntries[result.index] = { id: result.index, text: result.translatedText };
         });
 
-        // Save memory to localStorage
+        // Save memory to localStorage after all processing
         localStorage.setItem('translationMemory', JSON.stringify(translationMemory));
 
-        console.log(`Translation finished. Successful: ${successfulTranslations.length}, Failed: ${failedChunksData.length}`);
+        const successfulTranslationsCount = results.filter(r => r && !r.error && r.translatedText !== null).length;
+        console.log(`Translation finished. Successful: ${successfulTranslationsCount}, Failed: ${failedChunksData.length}`);
 
         // --- Handle Finish ---
-        const endTime = Date.now();
-        const duration = firstChunkTime ? ((endTime - firstChunkTime) / 1000).toFixed(1) : 'N/A';
+        const endTime = performance.now();
+        const duration = ((endTime - translationStartTime) / 1000).toFixed(1);
         const failedChunkIndices = failedChunksData.map(f => f.index + 1);
 
         if (failedChunkIndices.length > 0) {
@@ -816,6 +819,8 @@ async function handleFormSubmit(event) {
                 : `Translation finished with ${failedChunkIndices.length} errors on chunk(s): ${failedChunkIndices.join(', ')}.`;
             showError(errorMsg, false); // Show as error
             if (timeEstimateSpan) timeEstimateSpan.textContent = isRTL ? `پایان با ${failedChunkIndices.length} خطا` : `Finished with ${failedChunkIndices.length} errors`;
+            progressBar.style.width = '100%'; // Set progress to 100% even with errors
+            progressText.textContent = isRTL ? '100% تکمیل شده' : '100% Complete'; // Update text too
             displayRetryButtons(); // Show retry options
         } else {
             const interfaceLang = localStorage.getItem('language') || 'English';
@@ -824,9 +829,10 @@ async function handleFormSubmit(event) {
             showError(successMsg, true); // Show as success
             if (timeEstimateSpan) timeEstimateSpan.textContent = isRTL ? "پایان موفقیت آمیز" : "Finished successfully";
             progressBar.style.width = '100%'; // Ensure progress bar is full
+            progressText.textContent = isRTL ? '100% تکمیل شده' : '100% Complete';
         }
 
-        // Always generate download link, even with errors, containing successful parts
+        // Always generate download link, even with errors, containing successful/original parts
         generateAndDisplayDownloadLink();
 
     } catch (error) {
@@ -876,7 +882,7 @@ function generateAndDisplayDownloadLink() {
     console.log(`Download link generated for: ${downloadFileName}`);
 }
 
-// --- Retry Logic ---
+// --- Retry Logic (Adapted for plain text) ---
 function displayRetryButtons() {
     if (!failedChunksData || failedChunksData.length === 0) {
          const existingRetryContainer = document.getElementById('retry-container');
@@ -926,7 +932,7 @@ async function handleManualRetry(event) {
     const internalChunkIndex = parseInt(button.dataset.chunkIndex, 10);
     const failedChunkInfo = failedChunksData.find(fc => fc.index === internalChunkIndex);
 
-    if (!failedChunkInfo) {
+    if (!failedChunkInfo || !failedChunkInfo.chunkData) { // Check chunkData exists
         console.error("Could not find failed chunk data for index:", internalChunkIndex);
         showError("Error: Could not find data for this chunk retry.", false);
         return;
@@ -936,59 +942,52 @@ async function handleManualRetry(event) {
     const originalButtonHTML = button.innerHTML;
     button.disabled = true;
     button.classList.add('loading');
-    // Ensure spinner span exists in the button's HTML structure if needed, or construct it here
     button.innerHTML = `<span class="spinner"></span> ${localStorage.getItem('language') === 'Persian' ? `در حال تلاش مجدد بخش ${userFacingIndex}...` : `Retrying Chunk ${userFacingIndex}...`}`;
     hideError(); // Hide previous general errors
     console.log(`Retrying translation for Chunk ${userFacingIndex}...`);
 
     try {
-        // Call translateChunk with stored parameters
-        // Pass '1' for totalChunksForLog - it won't update the main bar,
-        // but prevents the ReferenceError inside translateChunk if it logs.
-        const translatedChunkTexts = await translateChunk(
-            failedChunkInfo.chunkData,
-            currentApiKey,
+        // Prepare API call settings (same as in main loop)
+        let generationConfig = {};
+        if (currentTemperature !== null) generationConfig.temperature = currentTemperature;
+        if (currentTopP !== null) generationConfig.topP = currentTopP;
+        if (currentTopK !== null) generationConfig.topK = currentTopK;
+        if (currentMaxOutputTokens !== null) generationConfig.maxOutputTokens = currentMaxOutputTokens;
+        if (currentStopSequencesStr) {
+            generationConfig.stopSequences = currentStopSequencesStr.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        let systemInstruction = currentPromptTemplate ? { role: "system", parts: [{ text: currentPromptTemplate }] } : null;
+        const useProxy = useProxyCheckbox.checked; // Get current proxy setting
+        const apiUrl = useProxy
+            ? `${proxyUrl}/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`
+            : `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${currentApiKey}`;
+
+        // Call translateChunk with the failed text chunk
+        const translatedText = await translateChunk(
+            failedChunkInfo.chunkData, // Pass the failed text string directly
+            apiUrl,
             currentBaseDelay,
             currentQuotaDelay,
             currentLang,
             userFacingIndex, // User-facing index for logging
-            1, // Pass 1 for totalChunksForLog to avoid error
-            currentModel,
-            currentPromptTemplate,
-            currentTemperature,
-            currentTopP,
-            currentTopK,
-            currentMaxOutputTokens,
-            currentStopSequencesStr
+            0, // Pass 0 for totalChunksForLog to signal it's a retry
+            generationConfig,
+            systemInstruction
         );
 
-        // --- Update the main data store ---
-        let entriesUpdated = 0;
-        const firstEntryId = parseInt(failedChunkInfo.chunkData[0].id, 10);
-        const startIndex = currentAllTranslatedEntries.findIndex(entry => parseInt(entry.id, 10) === firstEntryId);
+        // --- Update the main data store --- (Ensure index is valid)
+        if (internalChunkIndex >= 0 && internalChunkIndex < currentAllTranslatedEntries.length) {
+            currentAllTranslatedEntries[internalChunkIndex] = { id: internalChunkIndex, text: translatedText };
+            console.log(`Successfully retried chunk ${userFacingIndex}. Updated entry.`);
 
-        if (startIndex === -1) {
-             throw new Error(`Could not find starting entry ID ${firstEntryId} in current results.`);
+            // Update translation memory
+            updateTranslationMemory(failedChunkInfo.chunkData, translatedText, currentLang);
+            localStorage.setItem('translationMemory', JSON.stringify(translationMemory)); // Save memory immediately
+
+        } else {
+             console.error(`Invalid index ${internalChunkIndex} for retry update.`);
+             throw new Error(`Invalid index during retry update.`);
         }
-
-        failedChunkInfo.chunkData.forEach((originalEntry, indexInChunk) => {
-            const targetIndex = startIndex + indexInChunk;
-            if (targetIndex < currentAllTranslatedEntries.length &&
-                parseInt(currentAllTranslatedEntries[targetIndex].id, 10) === parseInt(originalEntry.id, 10)) {
-                 const newText = (translatedChunkTexts && indexInChunk < translatedChunkTexts.length)
-                                 ? translatedChunkTexts[indexInChunk]
-                                 : originalEntry.text;
-                 currentAllTranslatedEntries[targetIndex].text = newText ?? originalEntry.text;
-                 entriesUpdated++;
-            } else {
-                console.warn(`Mismatch/bounds error updating entry ID ${originalEntry.id} at index ${targetIndex}`);
-            }
-        });
-
-        if (entriesUpdated !== failedChunkInfo.chunkData.length) {
-             console.warn(`Expected ${failedChunkInfo.chunkData.length}, updated ${entriesUpdated}.`);
-        }
-        console.log(`Successfully retried chunk ${userFacingIndex}. Updated ${entriesUpdated} entries.`);
 
         // Remove this chunk from the failed list
         failedChunksData = failedChunksData.filter(fc => fc.index !== internalChunkIndex);
@@ -997,7 +996,7 @@ async function handleManualRetry(event) {
         button.remove(); // Remove the button on success
         showError(`Chunk ${userFacingIndex} successfully translated!`, true);
         generateAndDisplayDownloadLink(); // Update download link
-        displayRetryButtons(); // Refresh button list
+        displayRetryButtons(); // Refresh button list (will remove container if empty)
 
         // Update main status if all retries are done
         if (failedChunksData.length === 0) {
@@ -1013,12 +1012,89 @@ async function handleManualRetry(event) {
         button.disabled = false;
         button.classList.remove('loading');
         button.innerHTML = originalButtonHTML; // Restore original content
+    } finally {
+         // Ensure loading state is always removed from button if it still exists
+         const stillExistsButton = document.querySelector(`.retry-button[data-chunk-index="${internalChunkIndex}"]`);
+         if(stillExistsButton) {
+            stillExistsButton.disabled = false;
+            stillExistsButton.classList.remove('loading');
+            if (!stillExistsButton.querySelector('.spinner')) { // Avoid adding multiple spinners if innerHTML wasn't set
+                 stillExistsButton.innerHTML = originalButtonHTML;
+            }
+         }
     }
-} // End handleManualRetry
+}
 
 // --- Event Listeners Setup --- (Moved inside DOMContentLoaded)
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded and parsed");
+
+    // --- Initialize Libraries requiring DOM/window objects ---
+    // Set PDF.js worker source *after* the library script has loaded
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        console.log('PDF.js worker source set.');
+    } else {
+        console.error('PDF.js library (pdfjsLib) not found. PDF functionality will fail.');
+        showError('Error initializing PDF library. Please check your internet connection or browser extensions.');
+    }
+
+    // Initialize Dropzone only if the element exists
+    if (dropzoneElement) {
+        try {
+            const myDropzone = new Dropzone(dropzoneElement, {
+                url: "#", // Dummy URL
+                autoProcessQueue: false,
+                acceptedFiles: ".pdf", // Changed to PDF
+                maxFiles: 1,
+                addRemoveLinks: true,
+                dictDefaultMessage: dropzoneElement.querySelector('.dz-message') ? dropzoneElement.querySelector('.dz-message').innerHTML : "<p>Drop files here or click to upload.</p>",
+                dictRemoveFile: "Remove",
+                dictMaxFilesExceeded: "You can only upload one file.",
+                dictInvalidFileType: "You can only upload .pdf files.", // Changed to PDF
+                init: function() {
+                    this.on("addedfile", function(file) {
+                        if (this.files.length > 1) {
+                            this.removeFile(this.files[0]);
+                        }
+                        uploadedFile = file;
+                        hideError();
+                        console.log("File added:", file.name);
+                    });
+                    this.on("removedfile", function(file) {
+                        uploadedFile = null;
+                        console.log("File removed:", file.name);
+                    });
+                    this.on("error", function(file, errorMsg) {
+                        console.error("Dropzone error:", errorMsg);
+                        let userMessage = "Error adding file.";
+                        if (typeof errorMsg === 'string') {
+                            if (errorMsg.includes("You can only upload")) userMessage = errorMsg;
+                            else if (errorMsg.includes("File is too big")) userMessage = "File is too large.";
+                            else userMessage = "Invalid file. Please ensure it's a valid .pdf file."; // Changed to PDF
+                        }
+                        showError(userMessage);
+                        if (file.previewElement) {
+                            const removeLink = file.previewElement.querySelector("[data-dz-remove]");
+                            if (removeLink) { removeLink.click(); }
+                            else { file.previewElement.remove(); }
+                        }
+                        uploadedFile = null;
+                    });
+                }
+            });
+            console.log('Dropzone initialized.');
+        } catch (e) {
+            console.error("Failed to initialize Dropzone:", e);
+            if (dropzoneElement) {
+                dropzoneElement.textContent = "Error initializing file drop zone.";
+                dropzoneElement.style.border = "2px dashed var(--error-color)";
+            }
+        }
+    } else {
+        console.warn("Dropzone element '#dropzone-upload' not found.");
+    }
+    // --- End Library Initializations ---
 
     // Load saved theme or default to light
     const savedTheme = localStorage.getItem('theme');
